@@ -1,0 +1,4 @@
+[submodule "utilities/generator"]
+	path = utilities/generator
+	url = https://github.com/YunzheZJU/youtube-po-token-generator
+	ignore = dirty

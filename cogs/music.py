@@ -1,5 +1,5 @@
 from discord.ext import commands
-from discord import Guild, VoiceClient
+from discord import Guild, VoiceClient, Message
 from typing import Literal
 from os import path
 from utilities.utilities import log_info, log_error
@@ -40,10 +40,10 @@ class MusicCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("onreadycalled")
+        log_info("OnReady invoked from Music cog")
         for guild in self.bot.guilds:
             self.add_to_db(guild=guild)
-        print(self.db)
+        log_info(repr(self.db))
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: Guild):
@@ -69,26 +69,29 @@ class MusicCog(commands.Cog):
         author_voice = ctx.author.voice
         if author_voice is None:
             await ctx.send(strings.NOVOICE); return
+        # fmt:on
 
         voice: VoiceClient = self.get_voice_channel(guild=guild)
         # if voice is not None and voice.channel.id != author_voice.channel.id:
         #     await ctx.send(strings.ALRJOINED)
         # else:
         #     me["voice_channel"] = await author_voice.channel.connect()
-            
+
         if voice is None:
             # connect to author's vc and reference it for later
             me["voice_channel"] = await author_voice.channel.connect()
         elif voice.channel.id != author_voice.channel.id:
             await ctx.send(strings.ALRJOINED)
-            
+
+        # fmt:off
         # check whether the join was successful or not
         voice: VoiceClient = self.get_voice_channel(guild=guild)
         if voice is None:
             await ctx.send(strings.LETMEIN); return
-            
-        status_msg = await ctx.send("Alright, wait for a moment while I fetch the song would ya?")
-        
+        # fmt:on
+
+        status_msg = await ctx.send(strings.LOADING)
+
         # the song
         song = " ".join(query)
         song_id = song_title = ""
@@ -97,16 +100,21 @@ class MusicCog(commands.Cog):
             song = song_id + ".mp3"
             queue.append(song)
             source = path.join(configs.ROOT_DIR, "audios", song)
-            await voice.play(self.music_utils.ffmpeg(song=source))
+            
+            if not path.exists(source):
+                self.music_utils.download(song_id)
+            
+            voice.play(self.music_utils.ffmpeg(song=source))
             await status_msg.edit(content="**Now playing**: {}".format(song_title))
             # await voice.play(
             #     self.music_utils.ffmpeg("./audios/sunnyday.mp3"),
             #     after=lambda _: self.next(ctx=ctx, guild=guild),
-            # )    
-        except TypeError:
-            self.music_utils.download(song_id)
-            source = path.join(configs.ROOT_DIR, "audios", song_id)
-            await voice.play(self.music_utils.ffmpeg(song=source))
+            # )
+        # except TypeError:
+        #     self.music_utils.download(song_id)
+        #     source = path.join(configs.ROOT_DIR, "audios", song_id)
+        #     voice.play(self.music_utils.ffmpeg(song=source))
+        #     await status_msg.edit(content="**Now playing**: {}".format(song_title))
         except Exception as e:
             utilities.log_error(repr(e))
             await ctx.send(strings.PLAYERROR)

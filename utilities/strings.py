@@ -6,3 +6,4 @@ NOVOICE="Can't do that. Join a voice channel first and I'll consider your reques
 NOQUERY="Can't play something if I don't know the song. Tell me one!"
 LETMEIN="Can't enter you channel. Let me in!"
 PLAYERROR="Couldn't play that song. Probably copyrighted. Fuck those capitalists. Try again but instead add \"lyrics\" at the end"
+LOADING="Alright, wait for a moment while I fetch the song would ya?"
