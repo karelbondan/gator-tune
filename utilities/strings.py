@@ -1,0 +1,8 @@
+LEAVE="I'll see you around then"
+IDLE="Currently vibing in my room. Hit me up when you want me to play something"
+ALRJOINED="I'll play that song, but I'll be in the room I've currently joined"
+PING="Rock and roll!"
+NOVOICE="Can't do that. Join a voice channel first and I'll consider your request"
+NOQUERY="Can't play something if I don't know the song. Tell me one!"
+LETMEIN="Can't enter you channel. Let me in!"
+PLAYERROR="Couldn't play that song. Probably copyrighted. Fuck those capitalists. Try again but instead add \"lyrics\" at the end"

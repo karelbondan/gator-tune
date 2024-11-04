@@ -1,0 +1,29 @@
+# General config
+status: "Ain't got time to rock the ruckus. Time to roll! 🤘"
+prefix: .
+
+# Commands and their aliases. Only add or remove the list contents,
+# not the commands themselves
+commands:
+  play: 
+    - p
+    - pl
+  pause:
+    - pause
+  resume:
+    - resume
+  repeat:
+    - r
+  stop:
+    - st
+  leave:
+    - lv
+  skip:
+    - s
+  now_playing:
+    - np
+  queue:
+    - q
+  lyrics:
+    - l
+
