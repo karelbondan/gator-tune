@@ -46,7 +46,7 @@ class MusicCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        log_info("OnReady invoked from Music cog")
+        log_info(strings.Log.RDY_INVKD)
         for guild in self.bot.guilds:
             self.add_to_db(guild=guild)
         log_info(repr(self.db))
@@ -84,19 +84,15 @@ class MusicCog(commands.Cog):
         log_info(f"{guild.name}: [{len(bfr)}, {len(aft)}]")
 
         if len(members) == 1 and members[0].id == self.bot.user.id:
-            log_info(
-                "Bot is the last member in {}, leaving in {} seconds".format(
-                    guild.name, configs.CONFIG["leave_seconds"]
-                )
-            )
-            await text_channel.send(
-                "No one's here anymore? Good, Imma head back to my room"
-            )
+            leave_seconds = configs.CONFIG["leave_seconds"]
+            log_info(strings.Log.LAST_MMBR.format(guild.name, leave_seconds))
+
+            await text_channel.send(strings.Gator.LONE)
             await self._disconnect(guild=guild)
 
     @commands.command(name="play", aliases=configs.CONFIG["commands"]["play"])
     async def play(self, ctx: commands.Context, *query: str):
-        log_info(f"Play command invoked by {ctx.author} from {ctx.guild.name}")
+        log_info(strings.Log.PLY_INVKD.format(ctx.author, ctx.guild.name))
 
         # declarations
         guild = ctx.guild
@@ -107,11 +103,11 @@ class MusicCog(commands.Cog):
 
         # fmt:off
         if not query:
-            await ctx.send(strings.NOQUERY); return
+            await ctx.send(strings.Gator.NO_SQUERY); return
 
         author_voice = ctx.author.voice
         if author_voice is None:
-            await ctx.send(strings.NOVOICE); return
+            await ctx.send(strings.Gator.NO_UVOICE); return
         # fmt:on
 
         voice: VoiceClient = self.get_voice_channel(guild=guild)
@@ -119,16 +115,16 @@ class MusicCog(commands.Cog):
             # connect to author's vc and reference it for later
             me["voice_channel"] = await author_voice.channel.connect()
         elif voice.channel.id != author_voice.channel.id:
-            await ctx.send(strings.ALRJOINED)
+            await ctx.send(strings.Gator.EXISTS_VC)
 
         # fmt:off
         # check whether the join was successful or not
         voice: VoiceClient = self.get_voice_channel(guild=guild)
         if voice is None:
-            await ctx.send(strings.LETMEIN); return
+            await ctx.send(strings.Gator.LET_ME_IN); return
         # fmt:on
 
-        status_msg = await ctx.send(strings.LOADING)
+        status_msg = await ctx.send(strings.Gator.LOAD)
 
         # the song
         song = " ".join(query)
@@ -153,7 +149,7 @@ class MusicCog(commands.Cog):
                 )
         except Exception as e:
             utilities.log_error(repr(e))
-            await ctx.send(strings.PLAYERROR)
+            await ctx.send(strings.Gator.ERR_GENRL)
 
     @commands.command(name="pause", aliases=configs.CONFIG["commands"]["pause"])
     async def pause(self, ctx: commands.Context):
@@ -161,9 +157,9 @@ class MusicCog(commands.Cog):
         voice: VoiceClient = self.get_voice_channel(guild=guild)
         if voice.is_playing():
             voice.pause()
-            await ctx.send("Paused")
+            await ctx.send(strings.Gator.PAUS)
         else:
-            await ctx.send("No song is playing")
+            await ctx.send(strings.Gator.NO_PLAYNG)
 
     @commands.command(name="resume", aliases=configs.CONFIG["commands"]["resume"])
     async def resume(self, ctx: commands.Context):
@@ -171,9 +167,9 @@ class MusicCog(commands.Cog):
         voice: VoiceClient = self.get_voice_channel(guild=guild)
         if voice.is_paused():
             voice.resume()
-            await ctx.send("Resumed")
+            await ctx.send(strings.Gator.RSME)
         else:
-            await ctx.send("No song is paused")
+            await ctx.send(strings.Gator.NO_PAUSED)
 
     @commands.command(name="repeat", aliases=configs.CONFIG["commands"]["repeat"])
     async def repeat(
@@ -186,11 +182,11 @@ class MusicCog(commands.Cog):
         db = self.get_db(guild=guild)
         db["repeat"] = mode
         # send info
-        await ctx.send("Repeat mode is now set to {}".format(mode))
+        await ctx.send(strings.Gator.LOOP.format(mode))
 
     @commands.command(name="skip", aliases=configs.CONFIG["commands"]["skip"])
     async def skip(self, ctx: commands.Context):
-        log_info(f"Skip command invoked by {ctx.author} from {ctx.guild.name}")
+        log_info(strings.Log.SKP_INVKD.format(ctx.author, ctx.guild.name))
 
         guild = ctx.guild
         voice: VoiceClient = self.get_voice_channel(guild=guild)
@@ -199,48 +195,48 @@ class MusicCog(commands.Cog):
         # skip
         self._next(ctx=ctx, guild=guild)
 
-        await ctx.send("Skipped current song")
-        log_info(f"A song playing in {ctx.guild.name} was skipped")
+        await ctx.send(strings.Gator.SKIP)
+        log_info(strings.Log.S_SKIPPED.format(ctx.guild.name))
 
     @commands.command(name="stop", aliases=configs.CONFIG["commands"]["stop"])
     async def stop(self, ctx: commands.Context):
-        log_info(f"Stop command invoked by {ctx.author} from {ctx.guild.name}")
+        log_info(strings.Log.STP_INVKD.format(ctx.author, ctx.guild.name))
 
         guild = ctx.guild
         voice: VoiceClient = self.get_voice_channel(guild=guild)
         voice.stop()
 
-        await ctx.send("Rude, but I like your style")
-        log_info(f"A song playing in {ctx.guild.name} was stopped")
+        await ctx.send(strings.Gator.STOP)
+        log_info(strings.Log.S_STOPPED.format(ctx.guild.name))
 
     @commands.command(name="clear", aliases=configs.CONFIG["commands"]["clear"])
     async def clear(self, ctx: commands.Context):
-        log_info(f"Clear queue command invoked by {ctx.author} from {ctx.guild.name}")
+        log_info(strings.Log.CLS_INVKD.format(ctx.author, ctx.guild.name))
 
         guild = ctx.guild
         me = self.get_db(guild=guild)
         queue = self._get_queue(me=me)
 
-        log_info(f"Current queue: {queue}")
+        log_info(strings.Log.CUR_QUEUE.format(queue))
         queue.clear()
-        log_info(f"Song queue for {ctx.guild.name} has been cleared: {queue}")
+        log_info(strings.Log.S_QUE_CLS.format(ctx.guild.name, queue))
 
-        await ctx.send("Queue cleared")
+        await ctx.send(strings.Gator.CLS_QUEUE)
 
     @commands.command(name="leave", aliases=configs.CONFIG["commands"]["leave"])
     async def leave(self, ctx: commands.Context):
-        log_info(f"Leave command invoked by {ctx.author} from {ctx.guild.name}")
+        log_info(strings.Log.LVE_INVKD.format(ctx.author, ctx.guild.name))
 
         guild = ctx.guild
         voice: VoiceClient = self.get_voice_channel(guild=guild)
         if voice is not None:
             await self._disconnect(guild=guild)
         else:
-            await ctx.send("Not in a voice channel")
+            await ctx.send(strings.Gator.NO_BVOICE)
 
     @commands.command(name="queue", aliases=configs.CONFIG["commands"]["queue"])
     async def queue(self, ctx: commands.Context):
-        log_info(f"List queue command invoked by {ctx.author} from {ctx.guild.name}")
+        log_info(strings.Log.QUE_INVKD.format(ctx.author, ctx.guild.name))
 
         guild = ctx.guild
         me = self.get_db(guild=guild)
@@ -266,14 +262,15 @@ class MusicCog(commands.Cog):
                 queue.pop(0)
 
             source = queue[0]["source"]
+            title = queue[0]["title"]
             voice: VoiceClient = self.get_voice_channel(guild=guild)
             voice.play(
                 self.music_utils.ffmpeg(song=source),
                 after=lambda _: self._next(ctx=ctx, guild=guild),
             )
-            self._send_message(ctx, strings.NOWROCKING.format(queue[0]["title"]))
+            self._send_message(ctx, strings.Gator.PLAY.format(title))
         else:
-            self._send_message(ctx, strings.FINISHED)
+            self._send_message(ctx, strings.Gator.DONE)
 
     def _send_message(self, ctx: commands.Context, msg: str):
         msg = ctx.send(msg)
@@ -306,8 +303,8 @@ class MusicCog(commands.Cog):
         db = self.get_db(guild=guild)
         db["voice_channel"] = None
 
-        await text_channel.send(strings.LEAVE)
-        log_info(f"Monty has left {guild.name}")
+        await text_channel.send(strings.Gator.LEAV)
+        log_info(strings.Log.MONTY_LVE.format(guild.name))
 
     def _disconnect_after_seconds(self, guild: Guild):
         pass
