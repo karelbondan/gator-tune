@@ -204,9 +204,12 @@ class MusicCog(commands.Cog):
 
         guild = ctx.guild
         voice: VoiceClient = self.get_voice_channel(guild=guild)
-        voice.stop()
+        if voice.is_playing():
+            voice.stop()
+            await ctx.send(strings.Gator.STOP)
+        else:
+            await ctx.send(strings.Gator.IDLE)
 
-        await ctx.send(strings.Gator.STOP)
         log_info(strings.Log.S_STOPPED.format(ctx.guild.name))
 
     @commands.command(name="clear", aliases=configs.CONFIG["commands"]["clear"])
