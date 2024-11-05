@@ -15,6 +15,7 @@ class Gator:
     LET_ME_IN = "Can't enter your channel. Let me in!"
     EXISTS_VC = "I'll play that song, but I'll be in the room I've currently joined"
     CLS_QUEUE = "Queue cleared"
+    ADD_QUEUE = "🎸 Got it, I've add **{}** to the queue"
     NO_UVOICE = "Can't do that. Join a voice channel first and I'll consider your request"
     NO_BVOICE = "Not in a voice channel"
     NO_SQUERY = "Can't play something if I don't know the song. Tell me one!"
