@@ -145,6 +145,11 @@ class MusicCog(commands.Cog):
         ctx: commands.Context,
         mode: Literal["on", "off", "all"] = "all",
     ):
+        # fmt:off
+        if mode.strip().lower() not in ["on", "off", "all"]: 
+            await ctx.send(strings.Gator.INV_RPEAT); return 
+        # fmt:on
+
         guild = ctx.guild
         # db; set queue mode
         db = self._get_db(guild=guild)

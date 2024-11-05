@@ -21,6 +21,7 @@ class Gator:
     NO_SQUERY = "Can't play something if I don't know the song. Tell me one!"
     NO_PLAYNG = "No song is playing"
     NO_PAUSED = "No song is paused"
+    INV_RPEAT = "What even is that. I only know **on, off, or all** for the repeat mode"
     ERR_PLAYR = 'Couldn\'t play that song. Probably copyrighted. Fuck those capitalists. Try again but instead add "lyrics" at the end'
     ERR_GENRL = "Couldn't play that song. I don't feel so good..."
     
