@@ -1,7 +1,7 @@
-from discord import FFmpegPCMAudio
+from discord import FFmpegPCMAudio, FFmpegOpusAudio
 from bs4 import BeautifulSoup
 from typing import Tuple
-from pytubefix import YouTube
+from pytubefix import YouTube, Stream
 from os import path
 from time import strftime
 import requests
@@ -37,8 +37,13 @@ class Music:
             "options": "-vn",
         }
 
-    def ffmpeg(self, song: str) -> FFmpegPCMAudio:
-        return FFmpegPCMAudio(source=song, options=self.FFMPEG_OPTIONS)
+    def ffmpeg(self, song: str) -> FFmpegOpusAudio:
+        # return FFmpegPCMAudio(source=song, options=self.FFMPEG_OPTIONS)
+        return FFmpegOpusAudio(
+            source=song,
+            before_options=self.FFMPEG_OPTIONS["before_options"],
+            options=self.FFMPEG_OPTIONS["options"],
+        )
 
     def search(self, song: str) -> Tuple[str]:
         # search youtube
@@ -76,22 +81,30 @@ class Music:
 
         return (video_id, video_title)
 
-    def download(self, video_id: str) -> str:
-        # yt config
+    def _youtube(self, video_id: str) -> Stream:
         youtube = YouTube(
             url=configs.YT + video_id,
             use_po_token=True,
             po_token_verifier=self._potoken,
         )
-        config = youtube.streams.get_audio_only()
+        return youtube.streams.get_audio_only()
+
+    def download(self, video_id: str) -> str:
+        youtube = self._youtube(video_id=video_id)
 
         # output, download, rename
         output = path.join(configs.ROOT_DIR, "audios")
-        downld = config.download(output_path=output, mp3=True)
+        downld = youtube.download(output_path=output, mp3=True)
         rename = path.join(output, "{}.mp3".format(video_id))
         os.rename(downld, rename)
 
         return video_id
+
+    def stream(self, video_id: str) -> str:
+        # yt config
+        youtube = self._youtube(video_id=video_id)
+
+        return youtube.url
 
     def _potoken(self) -> Tuple[str, str]:
         generator = path.join(
