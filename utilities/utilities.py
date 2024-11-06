@@ -107,7 +107,7 @@ class Music:
 
     def _result(self, response: requests.Response):
         # parse response using bs4 and get search result
-        soup = BeautifulSoup(response.content, features="html5lib")
+        soup = BeautifulSoup(response.content.decode("utf-8"), features="html5lib")
         # the index of the script that contains the data varies by time.
         # at the time of this writing it was 23. for loop is better to reduce
         # the script breaking from changes made by yt

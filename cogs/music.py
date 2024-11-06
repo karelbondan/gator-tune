@@ -9,6 +9,7 @@ import threading
 import utilities.namedtypes as namedtypes
 import utilities.strings as strings
 import utilities.utilities as utilities
+import asyncio
 
 
 class MusicCog(commands.Cog):
@@ -16,10 +17,13 @@ class MusicCog(commands.Cog):
         self.bot = bot
         self.db: namedtypes.Db = {}
         self.music_utils = utilities.Music()
+        self.bot.loop.create_task(self._setup())
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        log_info(strings.Log.RDY_INVKD)
+    async def _setup(self):
+        while not self.bot.is_ready():
+            await asyncio.sleep(1)
+
+        log_info("Music cog setup invoked")
         for guild in self.bot.guilds:
             self._add_to_db(guild=guild)
         log_info(repr(self.db))
