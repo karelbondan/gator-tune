@@ -2,8 +2,8 @@ from discord.ext import commands
 from discord import Guild, VoiceClient, Member, Message, VoiceState
 from utilities.utilities import log_info
 from functools import partial
+from configs import CONFIG
 import re
-import configs
 import time
 import threading
 import utilities.namedtypes as namedtypes
@@ -58,13 +58,13 @@ class MusicCog(commands.Cog):
         log_info(f"{guild.name}: [{len(bfr)}, {len(aft)}]")
 
         if len(members) == 1 and members[0].id == self.bot.user.id:
-            leave_seconds = configs.CONFIG["leave_seconds"]
+            leave_seconds = CONFIG["leave_seconds"]
             log_info(strings.Log.LAST_MMBR.format(guild.name, leave_seconds))
 
             await text_channel.send(strings.Gator.LONE)
             await self._disconnect(guild=guild)
 
-    @commands.command(name="play", aliases=configs.CONFIG["commands"]["play"])
+    @commands.command(name="play", aliases=CONFIG["commands"]["play"])
     async def play(self, ctx: commands.Context, *query: str):
         log_info(strings.Log.PLY_INVKD.format(ctx.author, ctx.guild.name))
 
@@ -88,8 +88,39 @@ class MusicCog(commands.Cog):
         )
         play_thread.start()
 
-    @commands.command(name="pause", aliases=configs.CONFIG["commands"]["pause"])
+    @commands.command(name="now_playing", aliases=CONFIG["commands"]["now_playing"])
+    async def now_playing(self, ctx: commands.Context):
+        now_plyng = self._get_db(guild=ctx.guild)["queue"][0]
+        formatted = strings.Gator.NOW_PLYNG.format(
+            now_plyng["title"], now_plyng["duration"]
+        )
+        await ctx.send(formatted)
+
+    @commands.command(name="remove", aliases=CONFIG["commands"]["remove"])
+    async def remove(self, ctx: commands.Context, *index: str):
+        log_info(strings.Log.RME_INVKD.format(ctx.author, ctx.guild.name))
+        queue = self._get_db(guild=ctx.guild)["queue"]
+        q_length = len(queue)
+        # fmt:off
+        if not index:
+            await ctx.send(strings.Gator.INV_INTGR); return
+        if q_length < 1:
+            await ctx.send(strings.Gator.NO_SQUEUE); return
+        # fmt:on
+        try:
+            index = int(" ".join(index)) - 1
+            if index < 0:
+                raise ValueError
+            removed: namedtypes.Queue = queue.pop(index)
+            await ctx.send(strings.Gator.RMVD.format(removed["title"]))
+        except ValueError:
+            await ctx.send(strings.Gator.INV_INTGR)
+        except IndexError:
+            await ctx.send(strings.Gator.INV_REMOV.format(q_length))
+
+    @commands.command(name="pause", aliases=CONFIG["commands"]["pause"])
     async def pause(self, ctx: commands.Context):
+        log_info(strings.Log.PSE_INVKD.format(ctx.author, ctx.guild.name))
         guild = ctx.guild
         voice: VoiceClient = self._get_voice_channel(guild=guild)
 
@@ -101,8 +132,9 @@ class MusicCog(commands.Cog):
         else:
             await ctx.send(strings.Gator.NO_PLAYNG)
 
-    @commands.command(name="resume", aliases=configs.CONFIG["commands"]["resume"])
+    @commands.command(name="resume", aliases=CONFIG["commands"]["resume"])
     async def resume(self, ctx: commands.Context):
+        log_info(strings.Log.RSM_INVKD.format(ctx.author, ctx.guild.name))
         guild = ctx.guild
         voice: VoiceClient = self._get_voice_channel(guild=guild)
 
@@ -114,9 +146,10 @@ class MusicCog(commands.Cog):
         else:
             await ctx.send(strings.Gator.NO_PAUSED)
 
-    @commands.command(name="repeat", aliases=configs.CONFIG["commands"]["repeat"])
+    @commands.command(name="repeat", aliases=CONFIG["commands"]["repeat"])
     # mode should be on, off, or all. Literal isn't used to avoid BadLiteral error
     async def repeat(self, ctx: commands.Context, *mode: str):
+        log_info(strings.Log.RPT_INVKD.format(ctx.author, ctx.guild.name))
         # refs
         guild = ctx.guild
         me = self._get_db(guild=guild)
@@ -136,7 +169,7 @@ class MusicCog(commands.Cog):
         # save repeat mode to db
         me["repeat"] = mode
 
-    @commands.command(name="skip", aliases=configs.CONFIG["commands"]["skip"])
+    @commands.command(name="skip", aliases=CONFIG["commands"]["skip"])
     async def skip(self, ctx: commands.Context):
         log_info(strings.Log.SKP_INVKD.format(ctx.author, ctx.guild.name))
 
@@ -156,7 +189,7 @@ class MusicCog(commands.Cog):
         # skip
         self._next(ctx=ctx, guild=guild)
 
-    @commands.command(name="stop", aliases=configs.CONFIG["commands"]["stop"])
+    @commands.command(name="stop", aliases=CONFIG["commands"]["stop"])
     async def stop(self, ctx: commands.Context):
         log_info(strings.Log.STP_INVKD.format(ctx.author, ctx.guild.name))
 
@@ -176,7 +209,7 @@ class MusicCog(commands.Cog):
 
         log_info(strings.Log.S_STOPPED.format(ctx.guild.name))
 
-    @commands.command(name="clear", aliases=configs.CONFIG["commands"]["clear"])
+    @commands.command(name="clear", aliases=CONFIG["commands"]["clear"])
     async def clear(self, ctx: commands.Context):
         log_info(strings.Log.CLS_INVKD.format(ctx.author, ctx.guild.name))
 
@@ -190,7 +223,7 @@ class MusicCog(commands.Cog):
 
         await ctx.send(strings.Gator.CLS_QUEUE)
 
-    @commands.command(name="leave", aliases=configs.CONFIG["commands"]["leave"])
+    @commands.command(name="leave", aliases=CONFIG["commands"]["leave"])
     async def leave(self, ctx: commands.Context):
         log_info(strings.Log.LVE_INVKD.format(ctx.author, ctx.guild.name))
 
@@ -201,7 +234,7 @@ class MusicCog(commands.Cog):
         else:
             await ctx.send(strings.Gator.NO_BVOICE)
 
-    @commands.command(name="queue", aliases=configs.CONFIG["commands"]["queue"])
+    @commands.command(name="queue", aliases=CONFIG["commands"]["queue"])
     async def queue(self, ctx: commands.Context):
         log_info(strings.Log.QUE_INVKD.format(ctx.author, ctx.guild.name))
 
@@ -209,11 +242,14 @@ class MusicCog(commands.Cog):
         me = self._get_db(guild=guild)
         queue = self._get_queue(me=me)
 
-        trimmed = []
-        for i in queue:
-            trimmed.append({"title": i["title"]})
+        trimmed = ""
+        for idx, song in enumerate(queue):
+            # trimmed.append({"title": i["title"]})
+            trimmed += strings.Gator.LS_SQUEUE.format(
+                idx + 1, song["title"], song["duration"]
+            )
 
-        await ctx.send(trimmed)
+        await ctx.send(trimmed or strings.Gator.NO_SQUEUE)
 
     def _add_to_db(self, guild: Guild):
         """Instantiates a new database record of a newly joined guild"""

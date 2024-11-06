@@ -23,6 +23,11 @@ commands:
     - lv
   skip:
     - s
+  remove:
+    - rm
+    - delete
+    - del
+    - d
   now_playing:
     - np
   queue:
