@@ -51,20 +51,27 @@ class Music:
         response = requests.get(url=configs.URL + song, headers=configs.HEADERS)
         # get json response
         videos = self._result(response=response)
+        with open(
+            path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w"
+        ) as search_out:
+            search_out.write(json.dumps(videos))
         # actually get the list of result
         # fmt:off
         videos = videos["contents"] \
             ["twoColumnSearchResultsRenderer"] \
             ["primaryContents"] \
-            ["sectionListRenderer"]["contents"][0] \
-            ["itemSectionRenderer"]["contents"]
+            ["sectionListRenderer"]["contents"]
         # fmt:on
+        # apparently yt also includes "adSlotRenderer" in the first index so yeah
+        is_adv: dict = videos[0]["itemSectionRenderer"]["contents"][0]
+        if list(is_adv.keys())[0] == "adSlotRenderer":
+            videos = videos[1]["itemSectionRenderer"]["contents"]
+        else:
+            videos = videos[0]["itemSectionRenderer"]["contents"]
 
         # and get the first one
-        with open(path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w") as search_out:
-            search_out.write(json.dumps(videos))
         # apparently yt includes "didYouMeanRenderer" if it thinks there's a typo in the query
-        try: 
+        try:
             first_result = videos[0]["videoRenderer"]
         except KeyError:
             first_result = videos[1]["videoRenderer"]
