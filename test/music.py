@@ -1,6 +1,6 @@
 import utilities.utilities as utils
 from os import path
-from pytubefix import Search
+from pytubefix import Search, Playlist
 import configs
 import time
 
@@ -19,6 +19,12 @@ print((song_id, song_title))
 # stream
 source = music.stream(song_id)
 print(source)
+
+# playlist
+url = "https://www.youtube.com/watch?v=WEBMU9HSChg&list=PLnjSDipHxD67AUyODmVlrNElfzhpVZqL5&pp=gAQBiAQB"
+id, title, duration, queue = music.playlist("PLnjSDipHxD67AUyODmVlrNElfzhpVZqL5")
+print(queue)
+
 
 # # download
 # song_id = music.download(song_id)

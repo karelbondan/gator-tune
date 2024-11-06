@@ -6,7 +6,14 @@ from discord.ext import commands
 class Queue(TypedDict):
     id: str
     title: str
+    duration: str
     source: str
+
+
+class PlaylistQueue(TypedDict):
+    id: str
+    title: str
+    duration: str
 
 
 class State(TypedDict):

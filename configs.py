@@ -15,6 +15,7 @@ HEADERS = {
 }
 URL = "https://www.youtube.com/results?search_query="
 YT = "https://youtu.be/"
+PLAYLIST = "https://www.youtube.com/playlist?list="
 
 # bot
 TOKEN = os.getenv("TOKEN")

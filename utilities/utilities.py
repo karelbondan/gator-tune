@@ -1,9 +1,10 @@
-from discord import FFmpegPCMAudio, FFmpegOpusAudio
+from discord import FFmpegOpusAudio
 from bs4 import BeautifulSoup
 from typing import Tuple
 from pytubefix import YouTube, Stream
 from os import path
 from time import strftime
+import utilities.namedtypes as namedtypes
 import requests
 import configs
 import re
@@ -45,26 +46,11 @@ class Music:
             options=self.FFMPEG_OPTIONS["options"],
         )
 
-    def search(self, song: str) -> Tuple[str]:
+    def search(self, song: str) -> Tuple[str, str, str]:
         # search youtube
         response = requests.get(url=configs.URL + song, headers=configs.HEADERS)
-
-        # parse response using bs4 and get search result
-        soup = BeautifulSoup(response.content, features="html5lib")
-        videos = {}
-        # the index of the script that contains the data varies by time.
-        # at the time of this writing it was 23. for loop is better to reduce
-        # the script breaking from changes made by yt
-        scripts = soup.find_all("script")
-        for details in scripts:
-            if "ytInitialData" in str(details):
-                data = re.findall(
-                    r"(?<=var ytInitialData = ).+(?=;</script>)",
-                    str(details),
-                )
-                videos = json.loads(data[0])
-                break
-
+        # get json response
+        videos = self._result(response=response)
         # actually get the list of result
         # fmt:off
         videos = videos["contents"] \
@@ -75,11 +61,64 @@ class Music:
         # fmt:on
 
         # and get the first one
-        first_result = videos[0]["videoRenderer"]
+        with open(path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w") as search_out:
+            search_out.write(json.dumps(videos))
+        # apparently yt includes "didYouMeanRenderer" if it thinks there's a typo in the query
+        try: 
+            first_result = videos[0]["videoRenderer"]
+        except KeyError:
+            first_result = videos[1]["videoRenderer"]
         video_id = first_result["videoId"]
         video_title = first_result["title"]["runs"][0]["text"]
+        video_duration = first_result["lengthText"]["simpleText"]
 
-        return (video_id, video_title)
+        return video_id, video_title, video_duration
+
+    def playlist(self, id: str) -> Tuple[str, str, str, list[namedtypes.PlaylistQueue]]:
+        # get data
+        response = requests.get(url=configs.PLAYLIST + id, headers=configs.HEADERS)
+        # parse data
+        videos = self._result(response=response)
+        # get the list
+        # fmt:off
+        videos = videos["contents"] \
+            ["twoColumnBrowseResultsRenderer"]["tabs"][0] \
+            ["tabRenderer"]["content"]["sectionListRenderer"] \
+            ["contents"][0]["itemSectionRenderer"]["contents"][0] \
+            ["playlistVideoListRenderer"]["contents"]
+        # fmt:on
+        # get the first one, return the rest
+        video_id = video_title = video_duration = ""
+        queue = []
+        for idx, video in enumerate(videos):
+            this = video["playlistVideoRenderer"]
+            id = this["videoId"]
+            title = this["title"]["runs"][0]["text"]
+            duration = this["lengthText"]["simpleText"]
+
+            if idx == 0:
+                video_id = id
+                video_title = title
+                video_duration = duration
+            else:
+                queue.append({"id": id, "title": title, "duration": duration})
+
+        return video_id, video_title, video_duration, queue
+
+    def _result(self, response: requests.Response):
+        # parse response using bs4 and get search result
+        soup = BeautifulSoup(response.content, features="html5lib")
+        # the index of the script that contains the data varies by time.
+        # at the time of this writing it was 23. for loop is better to reduce
+        # the script breaking from changes made by yt
+        scripts = soup.find_all("script")
+        for details in scripts:
+            if "ytInitialData" in str(details):
+                data = re.findall(
+                    r"(?<=var ytInitialData = ).+(?=;</script>)",
+                    str(details),
+                )
+                return json.loads(data[0])
 
     def _youtube(self, video_id: str) -> Stream:
         youtube = YouTube(
@@ -101,9 +140,7 @@ class Music:
         return video_id
 
     def stream(self, video_id: str) -> str:
-        # yt config
         youtube = self._youtube(video_id=video_id)
-
         return youtube.url
 
     def _potoken(self) -> Tuple[str, str]:
@@ -114,9 +151,8 @@ class Music:
         with subprocess.Popen(command, stdout=subprocess.PIPE) as generator:
             output = {}
             for line in generator.stdout:
-                decoded = (
-                    line.decode(encoding="utf-8").replace("\n", "").replace(",", "")
-                )
+                decoded = line.decode(encoding="utf-8")
+                decoded = decoded.replace("\n", "").replace(",", "")
                 try:
                     k, v = decoded.split(":")
                     output[k.strip()] = eval(v.strip())
