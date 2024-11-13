@@ -10,6 +10,7 @@ import utilities.namedtypes as namedtypes
 import utilities.strings as strings
 import utilities.utilities as utilities
 import asyncio
+import traceback
 
 
 class MusicCog(commands.Cog):
@@ -330,6 +331,16 @@ class MusicCog(commands.Cog):
                 )
             )
         log_info("Acquire playlist data finished for {}".format(guild.name))
+        
+    def _connect(self, ctx: commands.Context) -> VoiceClient: 
+        # declarations
+        author_voice = ctx.author.voice
+        
+        connect = self.bot.loop.create_task(author_voice.channel.connect())
+        while not connect.done():
+            time.sleep(1)
+        
+        return connect.result()        
 
     def _play(
         self, ctx: commands.Context, guild: Guild, query: str, me: namedtypes.State
@@ -341,13 +352,11 @@ class MusicCog(commands.Cog):
         author_voice = ctx.author.voice
         queue: list[namedtypes.Queue] = me["queue"]
         voice: VoiceClient = self._get_voice_channel(guild=guild)
-        if voice is None:
+        # sometimes the bot be disconnecting in the middle of playing so yeah
+        if voice is None or not voice.is_connected():
             # connect to author's vc and reference it for later
-            connect = self.bot.loop.create_task(author_voice.channel.connect())
-            while not connect.done():
-                time.sleep(1)
-            me["voice_channel"] = connect.result()
-
+            connect = self._connect(ctx=ctx)
+            me["voice_channel"] = connect
         elif voice.channel.id != author_voice.channel.id:
             self._send_message(ctx, strings.Gator.EXISTS_VC)
 
@@ -368,7 +377,8 @@ class MusicCog(commands.Cog):
         try:
             if len(playlist) > 0:
                 id = playlist[0]
-                s_id, s_title, s_dur, s_queue = self.music_utils.playlist(id=id)
+                s_id, s_title, s_dur, s_queue, pl_title = self.music_utils.playlist(id=id)
+                self._send_message(ctx, strings.Gator.IS_PLAYLS.format(len(s_queue), pl_title))
             else:
                 s_id, s_title, s_dur = self.music_utils.search(song=song)
             source = self.music_utils.stream(video_id=s_id)
@@ -391,7 +401,7 @@ class MusicCog(commands.Cog):
                     daemon=True,
                 )
                 bg_thread.start()
-
+                
             if voice.is_playing():
                 self._edit_message(status, strings.Gator.ADD_QUEUE.format(s_title))
             else:
@@ -402,7 +412,7 @@ class MusicCog(commands.Cog):
                 )
                 self._edit_message(status, strings.Gator.PLAY.format(s_title))
         except Exception as e:
-            utilities.log_error(repr(e))
+            utilities.log_error(traceback.format_exc())
             self._send_message(ctx, strings.Gator.ERR_GENRL)
 
     def _next(self, ctx: commands.Context, guild: Guild):

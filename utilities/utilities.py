@@ -81,13 +81,14 @@ class Music:
 
         return video_id, video_title, video_duration
 
-    def playlist(self, id: str) -> Tuple[str, str, str, list[namedtypes.PlaylistQueue]]:
+    def playlist(self, id: str) -> Tuple[str, str, str, list[namedtypes.PlaylistQueue], str]:
         # get data
         response = requests.get(url=configs.PLAYLIST + id, headers=configs.HEADERS)
         # parse data
         videos = self._result(response=response)
         # get the list
         # fmt:off
+        playlist_title = videos["header"]["pageHeaderRenderer"]["pageTitle"]
         videos = videos["contents"] \
             ["twoColumnBrowseResultsRenderer"]["tabs"][0] \
             ["tabRenderer"]["content"]["sectionListRenderer"] \
@@ -110,7 +111,7 @@ class Music:
             else:
                 queue.append({"id": id, "title": title, "duration": duration})
 
-        return video_id, video_title, video_duration, queue
+        return video_id, video_title, video_duration, queue, playlist_title
 
     def _result(self, response: requests.Response):
         # parse response using bs4 and get search result
