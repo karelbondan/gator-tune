@@ -46,14 +46,16 @@ class Music:
             options=self.FFMPEG_OPTIONS["options"],
         )
 
-    def search(self, song: str) -> Tuple[str, str, str]:
+    def search(self, song: str) -> Tuple[str, str, str, str]:
+        # check if song is a yt link
+        yt, url = self._find_link(query=song)
+        if url:
+            return url.url, yt.video_id, yt.title, ".".join(map(str, divmod(yt.length, 60)))
         # search youtube
         response = requests.get(url=configs.URL + song, headers=configs.HEADERS)
         # get json response
         videos = self._result(response=response)
-        with open(
-            path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w"
-        ) as search_out:
+        with open(path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w") as search_out:
             search_out.write(json.dumps(videos))
         # actually get the list of result
         # fmt:off
@@ -79,16 +81,21 @@ class Music:
         video_title = first_result["title"]["runs"][0]["text"]
         video_duration = first_result["lengthText"]["simpleText"]
 
-        return video_id, video_title, video_duration
+        return "", video_id, video_title, video_duration
 
     def playlist(self, id: str) -> Tuple[str, str, str, list[namedtypes.PlaylistQueue], str]:
         # get data
         response = requests.get(url=configs.PLAYLIST + id, headers=configs.HEADERS)
         # parse data
         videos = self._result(response=response)
+        with open(path.join(configs.ROOT_DIR, "test", "out", "playlist_video_json.txt"), "w") as search_out:
+            search_out.write(json.dumps(videos))
         # get the list
         # fmt:off
-        playlist_title = videos["header"]["pageHeaderRenderer"]["pageTitle"]
+        try:
+            playlist_title = videos["header"]["pageHeaderRenderer"]["pageTitle"]
+        except KeyError: 
+            playlist_title = videos["header"]["playlistHeaderRenderer"]["title"]["simpleText"]
         videos = videos["contents"] \
             ["twoColumnBrowseResultsRenderer"]["tabs"][0] \
             ["tabRenderer"]["content"]["sectionListRenderer"] \
@@ -128,17 +135,21 @@ class Music:
                 )
                 return json.loads(data[0])
 
-    def _youtube(self, video_id: str) -> Stream:
-        youtube = YouTube(
-            url=configs.YT + video_id,
-            use_po_token=True,
-            po_token_verifier=self._potoken,
-        )
-        return youtube.streams.get_audio_only()
+    def _youtube(self, video_id: str) -> Tuple[YouTube, Stream]:
+        youtube = YouTube(url=configs.YT + video_id, use_po_token=True, po_token_verifier=self._potoken)
+        return youtube, youtube.streams.get_audio_only()
+
+    def _find_link(self, query: str) -> Tuple[YouTube, Stream] | Tuple[None, None]:
+        """Check if the given query is a youtube link, if not then return nothing"""
+        yt_url_regex = r"(https?:\/\/([\w\.]{1,256})?youtu(\.)?be(\.com)?/(watch\?v=)?)([\w-]+)"
+        try:
+            video_id = re.findall(yt_url_regex, query)[0][-1]
+            return self._youtube(video_id=video_id)
+        except IndexError:
+            return None, None
 
     def download(self, video_id: str) -> str:
-        youtube = self._youtube(video_id=video_id)
-
+        youtube = self._youtube(video_id=video_id)[1]
         # output, download, rename
         output = path.join(configs.ROOT_DIR, "audios")
         downld = youtube.download(output_path=output, mp3=True)
@@ -148,16 +159,14 @@ class Music:
         return video_id
 
     def stream(self, video_id: str) -> str:
-        youtube = self._youtube(video_id=video_id)
+        youtube = self._youtube(video_id=video_id)[1]
         return youtube.url
 
     def _potoken(self) -> Tuple[str, str]:
-        generator = path.join(
-            configs.ROOT_DIR, "utilities", "generator", "examples", "one-shot.js"
-        )
+        generator = path.join(configs.ROOT_DIR, "utilities", "generator", "examples", "one-shot.js")
         command = "node {}".format(generator).split(" ")
+        output = {}
         with subprocess.Popen(command, stdout=subprocess.PIPE) as generator:
-            output = {}
             for line in generator.stdout:
                 decoded = line.decode(encoding="utf-8")
                 decoded = decoded.replace("\n", "").replace(",", "")
@@ -167,4 +176,4 @@ class Music:
                 except Exception:
                     pass
 
-            return tuple(output.values())
+        return tuple(output.values())

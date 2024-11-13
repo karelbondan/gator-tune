@@ -371,7 +371,7 @@ class MusicCog(commands.Cog):
 
         # the song
         song = " ".join(query)
-        s_id = s_title = s_dur = ""
+        s_url = s_id = s_title = s_dur = ""
         s_queue: list[namedtypes.PlaylistQueue] | None = None
         playlist = re.findall(r"(?<=list=)[\w-]+", song)
         try:
@@ -380,8 +380,8 @@ class MusicCog(commands.Cog):
                 s_id, s_title, s_dur, s_queue, pl_title = self.music_utils.playlist(id=id)
                 self._send_message(ctx, strings.Gator.IS_PLAYLS.format(len(s_queue), pl_title))
             else:
-                s_id, s_title, s_dur = self.music_utils.search(song=song)
-            source = self.music_utils.stream(video_id=s_id)
+                s_url, s_id, s_title, s_dur = self.music_utils.search(song=song)
+            source = s_url or self.music_utils.stream(video_id=s_id)
             new_queue: namedtypes.Queue = {
                 "id": s_id,
                 "title": s_title,
