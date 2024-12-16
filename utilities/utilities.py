@@ -73,13 +73,19 @@ class Music:
 
         # and get the first one
         # apparently yt includes "didYouMeanRenderer" if it thinks there's a typo in the query
-        try:
-            first_result = videos[0]["videoRenderer"]
-        except KeyError:
-            first_result = videos[1]["videoRenderer"]
-        video_id = first_result["videoId"]
-        video_title = first_result["title"]["runs"][0]["text"]
-        video_duration = first_result["lengthText"]["simpleText"]
+        # also try to search for the first valid song for 10 times, if fails then just fail
+        video_id = video_title = video_duration = None
+        for idx, song in enumerate(videos):
+            if idx > 10: 
+                break
+            try:
+                first_result = song["videoRenderer"]
+                video_id = first_result["videoId"]
+                video_title = first_result["title"]["runs"][0]["text"]
+                video_duration = first_result["lengthText"]["simpleText"]
+                break
+            except KeyError:
+                continue
 
         return "", video_id, video_title, video_duration
 
