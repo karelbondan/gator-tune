@@ -5,3 +5,4 @@ node_modules/
 audios/
 *.env
 *.egg-info
+*token.json

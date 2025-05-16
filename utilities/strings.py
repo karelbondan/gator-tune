@@ -13,6 +13,8 @@ class Gator:
     DONE = "There, I've played all requested songs. Suck on that Freddy, they chose me as their performer!"
     LEAV = "I'll see you around"
     LONE = "No one's here anymore? Good, Imma head back to my room"
+    WHTF = "What the _FUCK_ was that. Never do that shit _ever fucking again_ you hear me <@{}>?!"
+    CNLG = "monty@console"
     LET_ME_IN = "Can't enter your channel. Let me in!"
     EXISTS_VC = "Join the room I'm in if you want to hear that song"
     CLS_QUEUE = "Sure, who loves long list anyway. I've cleared the queue"
@@ -32,6 +34,15 @@ class Gator:
     TIP_RPEAT = "Either set the repeat mode to **on, off, or all**. I've set it to **{}** for your convenience. You're welcome"
     ERR_PLAYR = 'Couldn\'t play that song. Probably copyrighted. Fuck those capitalists. Try again but instead add "lyrics" at the end'
     ERR_GENRL = "Couldn't play that song. Go whine to Freddy or something."
+    ERR_BOTDT = {
+        1: "Well shit. Those fuckers found out I'm a bot (I'm fucking not). I'm gonna try doing some magic shit. Wait for a moment.",
+        2: "Still sees me as a bot. Disrespectful motherfuckers. I'm gonna try again. Wait for a bit more will ya.",
+        3: "One... fucking... moment...",
+    }
+    ERR_GIVUP = "_sigh_ yo dickhead <@{}> fix me up... _please_"
+    ERR_PYTUB = "Yo <@{}> the thing you told me would find songs for me broke... I think. Go check it out."
+    ERR_PLYLS = "Can't play the playlist if it's private you dingus. Make it public and try again."
+    ERR_FORBD = "As embarrassing as this gets, I only bow for <@{}>. Sorry peasant, you have no control over me."
     
 class Log:
     RDY_INVKD = "OnReady invoked from Music cog"
@@ -52,3 +63,7 @@ class Log:
     CUR_QUEUE = "Current queue: {}"
     LAST_MMBR = "Monty is the last member in {}, leaving in {} seconds"
     MONTY_LVE = "Monty has left {}"
+    
+    ERR_BOTDT = "Oh no I'm detected as a bot boohoo"
+    ERR_PLYPV = "The playlist is private lol"
+    ERR_PYTUB = "Pytube going haywire again with the regex error thing"

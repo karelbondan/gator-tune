@@ -21,5 +21,5 @@ PLAYLIST = "https://www.youtube.com/playlist?list="
 TOKEN = os.getenv("TOKEN")
 OWNER = os.getenv("OWNER")
 
-with open(path.join(ROOT_DIR, "config.yml"), "r") as config:
+with open(path.join(ROOT_DIR, "config.yml"), "r", encoding="utf-8") as config:
     CONFIG = yaml.load(config, Loader=yaml.SafeLoader)

@@ -125,6 +125,10 @@ class Music:
                 queue.append({"id": id, "title": title, "duration": duration})
 
         return video_id, video_title, video_duration, queue, playlist_title
+    
+    def token(self):
+        """Refreshes the visitor data and po token"""
+        self._potoken()
 
     def _result(self, response: requests.Response):
         # parse response using bs4 and get search result
@@ -142,7 +146,9 @@ class Music:
                 return json.loads(data[0])
 
     def _youtube(self, video_id: str) -> Tuple[YouTube, Stream]:
-        youtube = YouTube(url=configs.YT + video_id, use_po_token=True, po_token_verifier=self._potoken)
+        if not path.exists("./token.json"):
+            self._potoken()
+        youtube = YouTube(url=configs.YT + video_id, use_po_token=True, token_file="./token.json")
         return youtube, youtube.streams.get_audio_only()
 
     def _find_link(self, query: str) -> Tuple[YouTube, Stream] | Tuple[None, None]:
@@ -178,8 +184,11 @@ class Music:
                 decoded = decoded.replace("\n", "").replace(",", "")
                 try:
                     k, v = decoded.split(":")
-                    output[k.strip()] = eval(v.strip())
+                    output[k.strip().replace("poToken", "po_token")] = eval(v.strip())
                 except Exception:
                     pass
+                
+        with open("./token.json", "w", encoding="utf-8") as token:
+            json.dump(output, token, indent=4)
 
         return tuple(output.values())

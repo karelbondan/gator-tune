@@ -3,6 +3,8 @@ from discord import Guild, VoiceClient, Member, Message, VoiceState
 from utilities.utilities import log_info
 from functools import partial
 from configs import CONFIG
+from pytubefix.exceptions import BotDetection, RegexMatchError
+from main import GatorTune
 import re
 import time
 import threading
@@ -11,12 +13,12 @@ import utilities.strings as strings
 import utilities.utilities as utilities
 import asyncio
 import traceback
+import configs
 
 
 class MusicCog(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: GatorTune):
         self.bot = bot
-        self.db: namedtypes.Db = {}
         self.music_utils = utilities.Music()
         self.bot.loop.create_task(self._setup())
 
@@ -26,12 +28,12 @@ class MusicCog(commands.Cog):
 
         log_info("Music cog setup invoked")
         for guild in self.bot.guilds:
-            self._add_to_db(guild=guild)
-        log_info(repr(self.db))
+            self.bot.add_to_db(guild=guild)
+        log_info(repr(self.bot.db))
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: Guild):
-        self._add_to_db(guild=guild)
+        self.bot.add_to_db(guild=guild)
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: Guild):
@@ -53,7 +55,7 @@ class MusicCog(commands.Cog):
         # if user leaves after will be null
         # other changes like changing name, user mutes and unmutes will result in both being
         # not null, but that'll be discarded since we only want to check the last member
-        except:
+        except Exception:
             members = aft = after.channel.members
 
         log_info(f"{guild.name}: [{len(bfr)}, {len(aft)}]")
@@ -252,31 +254,22 @@ class MusicCog(commands.Cog):
 
         await ctx.send(trimmed or strings.Gator.NO_SQUEUE)
 
-    def _add_to_db(self, guild: Guild):
-        """Instantiates a new database record of a newly joined guild"""
-        if guild.id not in self.db:
-            self.db[guild.id] = {
-                "clear_queue_on_leave": False,
-                "now_playing": "",
-                "paused": False,
-                "queue": [],
-                "repeat": "off",
-                "voice_channel": None,
-                "text_channel": None,
-            }
+    @commands.command(name="get_vc")
+    async def get_vc(self, ctx: commands.Context):
+        await ctx.send(self.bot.voice_clients)
 
     def _remove_from_db(self, guild: Guild):
         """Remove a guild's database"""
-        if guild.id in self.db:
-            self.db.pop(guild.id)
+        if guild.id in self.bot.db:
+            self.bot.db.pop(guild.id)
 
     def _get_voice_channel(self, guild: Guild) -> VoiceClient:
         """Get the guild's voice channel that GatorTune is currently connected to"""
-        return self.db[guild.id]["voice_channel"]
+        return self.bot.db[guild.id]["voice_channel"]
 
     def _get_db(self, guild: Guild) -> namedtypes.State:
         """Get database for supplied guild"""
-        return self.db[guild.id]
+        return self.bot.db[guild.id]
 
     def _get_queue(self, me: namedtypes.State) -> list[namedtypes.Queue]:
         """Get queue for supplied database of a guild"""
@@ -331,19 +324,24 @@ class MusicCog(commands.Cog):
                 )
             )
         log_info("Acquire playlist data finished for {}".format(guild.name))
-        
-    def _connect(self, ctx: commands.Context) -> VoiceClient: 
+
+    def _connect(self, ctx: commands.Context) -> VoiceClient:
         # declarations
         author_voice = ctx.author.voice
-        
+
         connect = self.bot.loop.create_task(author_voice.channel.connect())
         while not connect.done():
             time.sleep(1)
-        
-        return connect.result()        
+
+        return connect.result()
 
     def _play(
-        self, ctx: commands.Context, guild: Guild, query: str, me: namedtypes.State
+        self,
+        ctx: commands.Context,
+        guild: Guild,
+        query: str,
+        me: namedtypes.State,
+        cnt=0,
     ):
         """
         Recommended to be used with Threading to avoid blocking the main loop, allowing
@@ -367,7 +365,12 @@ class MusicCog(commands.Cog):
             self._send_message(ctx, strings.Gator.LET_ME_IN); return
         # fmt:on
 
-        status: Message = self._send_message(ctx, strings.Gator.LOAD, True)
+        if cnt == 0:
+            status: Message = self._send_message(ctx, strings.Gator.LOAD, True)
+        else:
+            status: Message = self._send_message(
+                ctx, strings.Gator.ERR_BOTDT[cnt], True
+            )
 
         # the song
         song = " ".join(query)
@@ -376,9 +379,14 @@ class MusicCog(commands.Cog):
         playlist = re.findall(r"(?<=list=)[\w-]+", song)
         try:
             if len(playlist) > 0:
-                id = playlist[0]
-                s_id, s_title, s_dur, s_queue, pl_title = self.music_utils.playlist(id=id)
-                self._send_message(ctx, strings.Gator.IS_PLAYLS.format(len(s_queue), pl_title))
+                pl_id = playlist[0]
+                s_id, s_title, s_dur, s_queue, pl_title = self.music_utils.playlist(
+                    id=pl_id
+                )
+                if cnt == 0:
+                    self._send_message(
+                        ctx, strings.Gator.IS_PLAYLS.format(len(s_queue), pl_title)
+                    )
             else:
                 s_url, s_id, s_title, s_dur = self.music_utils.search(song=song)
             source = s_url or self.music_utils.stream(video_id=s_id)
@@ -401,7 +409,7 @@ class MusicCog(commands.Cog):
                     daemon=True,
                 )
                 bg_thread.start()
-                
+
             if voice.is_playing():
                 self._edit_message(status, strings.Gator.ADD_QUEUE.format(s_title))
             else:
@@ -411,7 +419,25 @@ class MusicCog(commands.Cog):
                     after=lambda _: self._next(ctx=ctx, guild=guild),
                 )
                 self._edit_message(status, strings.Gator.PLAY.format(s_title))
-        except Exception as e:
+        except BotDetection:
+            utilities.log_error(strings.Log.ERR_BOTDT)
+            if cnt != 3:
+                self.music_utils.token()
+                self._play(ctx, guild, query, me, cnt + 1)
+            else:
+                self._send_message(ctx, strings.Gator.ERR_GIVUP.format(configs.OWNER))
+        except RegexMatchError:
+            utilities.log_error(traceback.format_exc())
+            utilities.log_error(strings.Log.ERR_PYTUB)
+            self._send_message(ctx, strings.Gator.ERR_PYTUB.format(configs.OWNER))
+        except KeyError as playlist_private:
+            utilities.log_error(traceback.format_exc())
+            utilities.log_error(strings.Log.ERR_PLYPV)
+            if "header" in str(playlist_private):
+                self._send_message(ctx, strings.Gator.ERR_PLYLS)
+            else:
+                self._send_message(ctx, strings.Gator.ERR_GENRL)
+        except Exception:
             utilities.log_error(traceback.format_exc())
             self._send_message(ctx, strings.Gator.ERR_GENRL)
 
@@ -428,7 +454,7 @@ class MusicCog(commands.Cog):
             elif repeat_mode == "off":
                 queue.pop(0)
         # fmt:off
-        except: pass
+        except Exception: pass
         # fmt:on
 
         if len(queue) > 0:
@@ -463,5 +489,5 @@ class MusicCog(commands.Cog):
         log_info(strings.Log.MONTY_LVE.format(guild.name))
 
 
-async def setup(bot: commands.Bot):
+async def setup(bot: GatorTune):
     await bot.add_cog(MusicCog(bot=bot))
