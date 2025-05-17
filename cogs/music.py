@@ -14,6 +14,7 @@ import utilities.utilities as utilities
 import asyncio
 import traceback
 import configs
+import importlib
 
 
 class MusicCog(commands.Cog):
@@ -21,6 +22,7 @@ class MusicCog(commands.Cog):
         self.bot = bot
         self.music_utils = utilities.Music()
         self.bot.loop.create_task(self._setup())
+        importlib.reload(strings)
 
     async def _setup(self):
         while not self.bot.is_ready():

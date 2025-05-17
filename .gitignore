@@ -6,3 +6,4 @@ audios/
 *.env
 *.egg-info
 *token.json
+*restore*

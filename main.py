@@ -1,9 +1,10 @@
+from os import path
 from discord import Intents, Guild
 from discord.ext import commands
-from os import path
 from utilities.utilities import log_info
 import utilities.namedtypes as namedtypes
 import utilities.strings as strings
+import importlib
 import configs
 import os
 
@@ -38,6 +39,7 @@ class GatorTune(commands.Bot):
     def _commands(self):
         @self.command()
         async def reload(ctx: commands.Context):
+            importlib.reload(strings)
             # fmt:off
             if ctx.author.id != int(configs.OWNER):
                 await ctx.send(strings.Gator.ERR_FORBD.format(configs.OWNER))
