@@ -7,3 +7,4 @@ audios/
 *.egg-info
 *token.json
 *restore*
+build/

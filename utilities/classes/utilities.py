@@ -1,16 +1,17 @@
-from discord import FFmpegOpusAudio
-from bs4 import BeautifulSoup
-from typing import Tuple
-from pytubefix import YouTube, Stream
+import json
+import re
+import subprocess
 from os import path
 from time import strftime
-import utilities.namedtypes as namedtypes
+from typing import Dict, Tuple
+
 import requests
+from bs4 import BeautifulSoup
+from discord import FFmpegOpusAudio
+from pytubefix import Stream, YouTube
+
 import configs
-import re
-import json
-import os
-import subprocess
+import utilities.classes.types as types
 
 
 def _format_tab(log_type: str):
@@ -31,11 +32,11 @@ def log_error(log: str):
     print("{}{}{}".format(strftime("%Y-%m-%d %H:%M:%S"), _format_tab("ERROR"), log))
 
 
-class Music:
+class MusicUtils:
     def __init__(self):
         self.FFMPEG_OPTIONS = {
             "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-            "options": "-vn",
+            "options": "-vn -c:a libopus -b:a 96k -vbr constrained",
         }
 
     def ffmpeg(self, song: str) -> FFmpegOpusAudio:
@@ -49,16 +50,24 @@ class Music:
     def search(self, song: str) -> Tuple[str, str, str, str]:
         # check if song is a yt link
         yt, url = self._find_link(query=song)
-        if url:
-            return url.url, yt.video_id, yt.title, ".".join(map(str, divmod(yt.length, 60)))
+        if url and yt:
+            return (
+                url.url,
+                yt.video_id,
+                yt.title,
+                ".".join(map(str, divmod(yt.length, 60))),
+            )
         # search youtube
         response = requests.get(url=configs.URL + song, headers=configs.HEADERS)
         # get json response
         videos = self._result(response=response)
-        with open(path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w") as search_out:
+        with open(
+            path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w"
+        ) as search_out:
             search_out.write(json.dumps(videos))
         # actually get the list of result
         # fmt:off
+        assert videos is not None
         videos = videos["contents"] \
             ["twoColumnSearchResultsRenderer"] \
             ["primaryContents"] \
@@ -74,27 +83,32 @@ class Music:
         # and get the first one
         # apparently yt includes "didYouMeanRenderer" if it thinks there's a typo in the query
         # also try to search for the first valid song for 10 times, if fails then just fail
-        video_id = video_title = video_duration = None
-        for idx, song in enumerate(videos):
-            if idx > 10: 
+        video_id = video_title = video_duration = ""
+        for idx, songs in enumerate(videos):
+            assert isinstance(songs, Dict)
+            if idx > 10:
                 break
             try:
-                first_result = song["videoRenderer"]
-                video_id = first_result["videoId"]
-                video_title = first_result["title"]["runs"][0]["text"]
-                video_duration = first_result["lengthText"]["simpleText"]
+                first_result = songs["videoRenderer"]
+                video_id: str = first_result["videoId"]
+                video_title: str = first_result["title"]["runs"][0]["text"]
+                video_duration: str = first_result["lengthText"]["simpleText"]
                 break
             except KeyError:
                 continue
 
         return "", video_id, video_title, video_duration
 
-    def playlist(self, id: str) -> Tuple[str, str, str, list[namedtypes.PlaylistQueue], str]:
+    def playlist(self, id: str) -> Tuple[str, str, str, list[types.PlaylistQueue], str]:
         # get data
         response = requests.get(url=configs.PLAYLIST + id, headers=configs.HEADERS)
         # parse data
         videos = self._result(response=response)
-        with open(path.join(configs.ROOT_DIR, "test", "out", "playlist_video_json.txt"), "w") as search_out:
+        assert videos is not None
+
+        with open(
+            path.join(configs.ROOT_DIR, "test", "out", "playlist_video_json.txt"), "w"
+        ) as search_out:
             search_out.write(json.dumps(videos))
         # get the list
         # fmt:off
@@ -125,7 +139,7 @@ class Music:
                 queue.append({"id": id, "title": title, "duration": duration})
 
         return video_id, video_title, video_duration, queue, playlist_title
-    
+
     def token(self):
         """Refreshes the visitor data and po token"""
         self._potoken()
@@ -145,40 +159,40 @@ class Music:
                 )
                 return json.loads(data[0])
 
-    def _youtube(self, video_id: str) -> Tuple[YouTube, Stream]:
+    def _youtube(self, video_id: str) -> Tuple[YouTube, Stream | None]:
         if not path.exists("./token.json"):
             self._potoken()
-        youtube = YouTube(url=configs.YT + video_id, use_po_token=True, token_file="./token.json")
+        youtube = YouTube(
+            url=configs.YT + video_id, use_po_token=True, token_file="./token.json"
+        )
         return youtube, youtube.streams.get_audio_only()
 
-    def _find_link(self, query: str) -> Tuple[YouTube, Stream] | Tuple[None, None]:
+    def _find_link(
+        self, query: str
+    ) -> Tuple[YouTube, Stream | None] | Tuple[None, None]:
         """Check if the given query is a youtube link, if not then return nothing"""
-        yt_url_regex = r"(https?:\/\/([\w\.]{1,256})?youtu(\.)?be(\.com)?/(watch\?v=)?)([\w-]+)"
+        yt_url_regex = (
+            r"(https?:\/\/([\w\.]{1,256})?youtu(\.)?be(\.com)?/(watch\?v=)?)([\w-]+)"
+        )
         try:
             video_id = re.findall(yt_url_regex, query)[0][-1]
             return self._youtube(video_id=video_id)
         except IndexError:
             return None, None
 
-    def download(self, video_id: str) -> str:
-        youtube = self._youtube(video_id=video_id)[1]
-        # output, download, rename
-        output = path.join(configs.ROOT_DIR, "audios")
-        downld = youtube.download(output_path=output, mp3=True)
-        rename = path.join(output, "{}.mp3".format(video_id))
-        os.rename(downld, rename)
-
-        return video_id
-
     def stream(self, video_id: str) -> str:
         youtube = self._youtube(video_id=video_id)[1]
+        assert youtube is not None
         return youtube.url
 
     def _potoken(self) -> Tuple[str, str]:
-        generator = path.join(configs.ROOT_DIR, "utilities", "generator", "examples", "one-shot.js")
+        generator = path.join(
+            configs.ROOT_DIR, "utilities", "generator", "examples", "one-shot.js"
+        )
         command = "node {}".format(generator).split(" ")
         output = {}
         with subprocess.Popen(command, stdout=subprocess.PIPE) as generator:
+            assert generator.stdout is not None
             for line in generator.stdout:
                 decoded = line.decode(encoding="utf-8")
                 decoded = decoded.replace("\n", "").replace(",", "")
@@ -187,7 +201,7 @@ class Music:
                     output[k.strip().replace("poToken", "po_token")] = eval(v.strip())
                 except Exception:
                     pass
-                
+
         with open("./token.json", "w", encoding="utf-8") as token:
             json.dump(output, token, indent=4)
 

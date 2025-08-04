@@ -2,12 +2,13 @@ import os
 import yaml
 from dotenv import load_dotenv
 from os import path
+from typing import cast
 
 load_dotenv(override=True)
 
 # definitions
 ROOT_DIR = path.dirname(path.abspath(__file__))
-TAB = " " * int(os.getenv("TAB_AMT"))
+TAB = " " * int(cast(str, os.getenv("TAB_AMT")))
 
 # for song search
 HEADERS = {
@@ -18,8 +19,8 @@ YT = "https://youtu.be/"
 PLAYLIST = "https://www.youtube.com/playlist?list="
 
 # bot
-TOKEN = os.getenv("TOKEN")
-OWNER = os.getenv("OWNER")
+TOKEN = cast(str, os.getenv("TOKEN"))
+OWNER = cast(int, os.getenv("OWNER"))
 
 with open(path.join(ROOT_DIR, "config.yml"), "r", encoding="utf-8") as config:
     CONFIG = yaml.load(config, Loader=yaml.SafeLoader)

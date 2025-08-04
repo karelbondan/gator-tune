@@ -1,6 +1,6 @@
 # General config
 status: "Ain't got time to rock the ruckus. Time to roll! 🤘"
-prefix: .
+prefix: "="
 leave_seconds: 5 # unused, fuck python's async 
 
 # Commands and their aliases. Only add or remove the list contents,
@@ -12,6 +12,7 @@ commands:
   pause:
     - ps
   resume:
+    - res
     - rs
   repeat:
     - r
