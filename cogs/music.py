@@ -22,7 +22,6 @@ class MusicCog(commands.Cog):
         self.bot = bot
         self.utils = MusicUtils()
         self.helper = MusicCogHelper(bot, self.utils)
-        # self.bot.loop.create_task(self._setup())
         importlib.reload(helper)
         importlib.reload(strings)
         importlib.reload(utilities)
@@ -55,19 +54,19 @@ class MusicCog(commands.Cog):
         Will only be used to check the remaining members in a vc and whether
         or not the bot should disconnect
         """
-        guild = member.guild
-        text_ch = self._get_text_ch(guild)
-
         # thanks gemini lol. adjusted a bit from its recommendation
         if before.channel:
             members = before.channel.members
             all_bots = all(member.bot for member in members)
             if all_bots and (self.bot.user in members):
+                guild = member.guild
+                text_ch = self._get_text_ch(guild)
                 leave_seconds = CONFIG["leave_seconds"]
+                
                 log_info(strings.Log.LAST_MMBR.format(guild.name, leave_seconds))
-
+                
                 await text_ch.send(strings.Gator.LONE)
-                await self.helper.disconnect(guild=guild)
+                await self.helper.disconnect(guild)
 
     @commands.command(name="vc")
     async def vc(self, ctx: commands.Context):
