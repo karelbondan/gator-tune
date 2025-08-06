@@ -1,5 +1,6 @@
 import importlib
 import threading
+import asyncio
 from functools import partial
 from typing import Literal, cast
 
@@ -36,7 +37,7 @@ class MusicCog(commands.Cog):
     async def _get_voice_ch(self, ctx: commands.Context):
         assert ctx.guild is not None
         await check_author(ctx)
-        return cast(VoiceClient, ctx.guild.voice_client)
+        return cast(VoiceClient | None, ctx.guild.voice_client)
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: Guild):
@@ -62,9 +63,9 @@ class MusicCog(commands.Cog):
                 guild = member.guild
                 text_ch = self._get_text_ch(guild)
                 leave_seconds = CONFIG["leave_seconds"]
-                
+
                 log_info(strings.Log.LAST_MMBR.format(guild.name, leave_seconds))
-                
+
                 await text_ch.send(strings.Gator.LONE)
                 await self.helper.disconnect(guild)
 
@@ -94,11 +95,7 @@ class MusicCog(commands.Cog):
         if not query:
             return await ctx.send(strings.Gator.NO_SQUERY)
 
-        play_thread = threading.Thread(
-            target=partial(self.helper.play, ctx=ctx, query=query),
-            daemon=True,
-        )
-        play_thread.start()
+        await self.helper.play(ctx, query)
 
     @commands.command(name="now_playing", aliases=CONFIG["commands"]["now_playing"])
     async def now_playing(self, ctx: commands.Context):
@@ -211,7 +208,7 @@ class MusicCog(commands.Cog):
         await ctx.send(strings.Gator.SKIP)
         log_info(strings.Log.S_SKIPPED.format(ctx.guild.name))
 
-        self.helper.next(ctx=ctx, guild=guild)
+        await self.helper.next(ctx=ctx, guild=guild)
 
     @commands.command(name="stop", aliases=CONFIG["commands"]["stop"])
     async def stop(self, ctx: commands.Context):
@@ -264,10 +261,13 @@ class MusicCog(commands.Cog):
 
         guild = ctx.guild
         voice = await self._get_voice_ch(ctx)
-        if voice is not None:
-            await self.helper.disconnect(guild=guild)
-        else:
-            await ctx.send(strings.Gator.NO_BVOICE)
+        
+        if self.helper.zombified(guild):
+            voice = await self.helper.reconnect(guild)
+        if voice is None:
+            return await ctx.send(strings.Gator.NO_BVOICE)
+        
+        await self.helper.disconnect(guild, ctx)
 
     @commands.command(name="queue", aliases=CONFIG["commands"]["queue"])
     async def queue(self, ctx: commands.Context):

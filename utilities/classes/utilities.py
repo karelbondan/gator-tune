@@ -11,7 +11,8 @@ from discord import FFmpegOpusAudio
 from pytubefix import Stream, YouTube
 
 import configs
-import utilities.classes.types as types
+
+from utilities.classes.types import Song
 
 
 def _format_tab(log_type: str):
@@ -40,23 +41,24 @@ class MusicUtils:
         }
 
     def ffmpeg(self, song: str) -> FFmpegOpusAudio:
-        # return FFmpegPCMAudio(source=song, options=self.FFMPEG_OPTIONS)
         return FFmpegOpusAudio(
             source=song,
             before_options=self.FFMPEG_OPTIONS["before_options"],
             options=self.FFMPEG_OPTIONS["options"],
         )
 
-    def search(self, song: str) -> Tuple[str, str, str, str]:
+    def search(self, song: str) -> Song:
         # check if song is a yt link
         yt, url = self._find_link(query=song)
         if url and yt:
-            return (
-                url.url,
-                yt.video_id,
-                yt.title,
-                ".".join(map(str, divmod(yt.length, 60))),
-            )
+            return {
+                "id": yt.video_id,
+                "url": url.url,
+                "title": yt.title,
+                "queue": None,
+                "duration": ".".join(map(str, divmod(yt.length, 60))),
+                "playlist_title": None,
+            }
         # search youtube
         response = requests.get(url=configs.URL + song, headers=configs.HEADERS)
         # get json response
@@ -97,9 +99,16 @@ class MusicUtils:
             except KeyError:
                 continue
 
-        return "", video_id, video_title, video_duration
+        return {
+            "id": video_id,
+            "url": None,
+            "title": video_title,
+            "queue": None,
+            "duration": video_duration,
+            "playlist_title": None,
+        }
 
-    def playlist(self, id: str) -> Tuple[str, str, str, list[types.PlaylistQueue], str]:
+    def playlist(self, id: str) -> Song:
         # get data
         response = requests.get(url=configs.PLAYLIST + id, headers=configs.HEADERS)
         # parse data
@@ -138,7 +147,14 @@ class MusicUtils:
             else:
                 queue.append({"id": id, "title": title, "duration": duration})
 
-        return video_id, video_title, video_duration, queue, playlist_title
+        return {
+            "id": video_id,
+            "url": None,
+            "title": video_title,
+            "queue": queue,
+            "duration": video_duration,
+            "playlist_title": playlist_title,
+        }
 
     def token(self):
         """Refreshes the visitor data and po token"""

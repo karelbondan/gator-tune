@@ -1,7 +1,4 @@
-from typing import Literal, TypedDict
-
-from discord import VoiceClient
-from discord.ext import commands
+from typing import Literal, TypedDict, Optional
 
 
 class Queue(TypedDict):
@@ -18,14 +15,6 @@ class PlaylistQueue(TypedDict):
 
 
 class State(TypedDict):
-    # clear_queue_on_leave: bool
-    # now_playing: str
-    # paused: bool
-    # queue: list[Queue]
-    # repeat: Literal["on", "off", "all"]
-    # voice_channel: None | VoiceClient
-    # text_channel: None | commands.Context
-    
     voice_channel: int | None
     text_channel: int | None
     now_playing: str
@@ -35,3 +24,12 @@ class State(TypedDict):
 
 class Database(TypedDict):
     guild_id: State
+
+
+class Song(TypedDict):
+    id: str
+    url: Optional[str]
+    title: str
+    queue: Optional[list[PlaylistQueue]]
+    duration: str
+    playlist_title: Optional[str]

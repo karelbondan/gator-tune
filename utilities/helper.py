@@ -5,6 +5,7 @@ import utilities.strings as strings
 
 
 async def check_author(ctx: Context):
+    """Check whether the author has invoked the command correctly"""
     assert ctx.author is not None
     if not isinstance(ctx.author, Member):
         await ctx.send("Invoke this command from a server")
