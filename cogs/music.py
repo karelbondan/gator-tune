@@ -1,19 +1,21 @@
 import importlib
-import threading
-import asyncio
-from functools import partial
 from typing import Literal, cast
 
 from discord import Guild, Member, TextChannel, VoiceClient, VoiceState
 from discord.ext import commands
 
 import cogs.helper.music as helper
-import utilities.classes.types as types
 import utilities.classes.utilities as utilities
 import utilities.strings as strings
 from cogs.helper.music import MusicCogHelper
 from configs import CONFIG
 from main import GatorTune
+
+# since typed variables is usually not a python thing, the linter
+# panics since I tried using the Music class from classes.music,
+# although technically it is valid since Music from classes.music
+# is a child of types.music. 
+from utilities.classes.types import Music
 from utilities.classes.utilities import MusicUtils, log_info
 from utilities.helper import check_author
 
@@ -105,7 +107,7 @@ class MusicCog(commands.Cog):
         curr_db = self.bot.database.get(ctx.guild.id)
         playing = curr_db["queue"][0]
 
-        msg = strings.Gator.NOW_PLYNG.format(playing["title"], playing["duration"])
+        msg = strings.Gator.NOW_PLYNG.format(playing.title, playing.duration)
         await ctx.send(msg)
 
     @commands.command(name="remove", aliases=CONFIG["commands"]["remove"])
@@ -127,8 +129,8 @@ class MusicCog(commands.Cog):
             idx = int(" ".join(index)) - 1
             if idx < 0:
                 raise ValueError
-            removed: types.Queue = queue.pop(idx)
-            await ctx.send(strings.Gator.RMVD.format(removed["title"]))
+            removed: Music = queue.pop(idx)
+            await ctx.send(strings.Gator.RMVD.format(removed.title))
         except ValueError:
             await ctx.send(strings.Gator.INV_INTGR)
         except IndexError:
@@ -261,12 +263,12 @@ class MusicCog(commands.Cog):
 
         guild = ctx.guild
         voice = await self._get_voice_ch(ctx)
-        
+
         if self.helper.zombified(guild):
             voice = await self.helper.reconnect(guild)
         if voice is None:
             return await ctx.send(strings.Gator.NO_BVOICE)
-        
+
         await self.helper.disconnect(guild, ctx)
 
     @commands.command(name="queue", aliases=CONFIG["commands"]["queue"])
@@ -283,7 +285,7 @@ class MusicCog(commands.Cog):
         trimmed = ""
         for idx, song in enumerate(queue):
             trimmed += strings.Gator.LS_SQUEUE.format(
-                idx + 1, song["title"], song["duration"]
+                idx + 1, song.title, song.duration
             )
 
         await ctx.send(trimmed or strings.Gator.NO_SQUEUE)

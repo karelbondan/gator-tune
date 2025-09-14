@@ -21,6 +21,7 @@ class Gator:
     ADD_QUEUE = "🎸 Got it, I've added **{}** to the queue"
     LS_SQUEUE = "{}. **{}** (`{}`)\n"
     IS_PLAYLS = "Urgh a playlist. Fine, **{} songs** from **{}** will be added one by one to the queue so be patient."
+    DOREFETCH = "Oh fuck my guitar string's about to snap! Hold on for a bit lil guy"
     NO_UVOICE = "Can't do that. Join a voice channel first and I'll play the song you requested"
     NO_BVOICE = "You drunk? I'm not in any voice channel"
     NO_SQUERY = "Can't play something if I don't know the song"

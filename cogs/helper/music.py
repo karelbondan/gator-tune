@@ -16,9 +16,9 @@ from discord.ext.commands import Context
 from pytubefix.exceptions import BotDetection, RegexMatchError
 
 import utilities.strings as strings
-from configs import OWNER
+from configs import OWNER, YT
 from main import GatorTune
-from utilities.classes.types import PlaylistQueue, Queue
+from utilities.classes.types import Music, PlaylistQueue
 from utilities.classes.utilities import MusicUtils, log_error, log_info
 
 
@@ -87,18 +87,21 @@ class MusicCogHelper:
         self.bot.database.remove(guild)
         log_info(strings.Log.MONTY_LVE.format(guild.name))
 
-    def playlist(self, s_queue: list[PlaylistQueue], queue: list[Queue], guild: Guild):
+    def playlist(self, s_queue: list[PlaylistQueue], queue: list[Music], guild: Guild):
         """Recommended to be used with Threading to avoid blocking the main event loop"""
         log_info("Thread to acquire playlist data started for {}".format(guild.name))
         for song in s_queue:
             source = self.utils.stream(video_id=song["id"])
-            new_queue: Queue = {
-                "id": song["id"],
-                "title": song["title"],
-                "duration": song["duration"],
-                "source": source,
-            }
-            queue.append(new_queue)
+            music = Music(
+                id=song["id"],
+                title=song["title"],
+                creator="Placeholder",
+                duration=song["duration"],
+                lyrics="Placeholder",
+                source=source,
+                url=YT + song["id"],
+            )
+            queue.append(music)
             log_info(
                 "{} [{}] added to {}'s queue".format(
                     song["title"], song["duration"], guild.name
@@ -158,13 +161,16 @@ class MusicCogHelper:
             else:
                 result = await loop.run_in_executor(None, self.utils.search, song)
             source = result["url"] or self.utils.stream(video_id=result["id"])
-            new_queue: Queue = {
-                "id": result["id"],
-                "title": result["title"],
-                "duration": result["duration"],
-                "source": source,
-            }
-            queue.append(new_queue)
+            music = Music(
+                id=result["id"],
+                title=result["title"],
+                creator="Placeholder",
+                duration=result["duration"],
+                lyrics="Placeholder",
+                source=source,
+                url=YT + result["id"],
+            )
+            queue.append(music)
 
             if result["queue"] is not None:
                 # thanks gemini
@@ -218,17 +224,25 @@ class MusicCogHelper:
             pass
 
         if len(queue) > 0:
-            source = queue[0]["source"]
-            title = queue[0]["title"]
+            music = queue[0]
+            expired = await music.expired()
+            message = None
+            if expired:
+                message = await self.send_message(ctx, strings.Gator.DOREFETCH)
+                await music.refetch(check=False)
 
             voice = self.get_voice_ch(guild)
             if self.zombified(guild):
                 voice = await self.reconnect(guild)
             assert voice is not None
 
-            ffmpeg = self.utils.ffmpeg(song=source)
+            ffmpeg = self.utils.ffmpeg(song=music.source)
             voice.play(ffmpeg, after=self._after(ctx, guild))
 
-            await self.send_message(ctx, strings.Gator.PLAY.format(title))
+            content = strings.Gator.PLAY.format(music.title)
+            if message:
+                await message.edit(content=content)
+            else:
+                await self.send_message(ctx, content)
         else:
             await self.send_message(ctx, strings.Gator.DONE)
