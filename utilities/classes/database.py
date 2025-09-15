@@ -1,9 +1,16 @@
-from typing import Dict
+from typing import Dict, Literal, TypedDict
 
 from discord import Guild
 
-from utilities.classes.types import State
+from utilities.classes.music import Music
 
+
+class State(TypedDict):
+    voice_channel: int | None
+    text_channel: int | None
+    now_playing: str
+    queue: list[Music]
+    repeat: Literal["on", "off", "all"]
 
 class Database:
     def __init__(self) -> None:
@@ -25,7 +32,7 @@ class Database:
         if not database:
             database = self.push(guild_id)
         return database
-    
+
     def update(self, guild: Guild, data: State):
         self.database[guild.id] = data
 

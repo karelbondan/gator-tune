@@ -18,7 +18,8 @@ from pytubefix.exceptions import BotDetection, RegexMatchError
 import utilities.strings as strings
 from configs import OWNER, YT
 from main import GatorTune
-from utilities.classes.types import Music, PlaylistQueue
+from utilities.classes.music import Music
+from utilities.classes.types import PlaylistQueue
 from utilities.classes.utilities import MusicUtils, log_error, log_info
 
 
@@ -93,6 +94,7 @@ class MusicCogHelper:
         for song in s_queue:
             source = self.utils.stream(video_id=song["id"])
             music = Music(
+                bot=self.bot,
                 id=song["id"],
                 title=song["title"],
                 creator="Placeholder",
@@ -122,7 +124,10 @@ class MusicCogHelper:
 
         # sometimes the bot be disconnecting in the middle of playing so yeah
         if voice is None or not voice.is_connected():
-            connect = await self.connect(ctx)
+            if self.zombified(guild):
+                connect = await self.reconnect(guild)
+            else:
+                connect = await self.connect(ctx)
             curr_db["voice_channel"] = connect.channel.id
         elif voice.channel.id != ctx.author.voice.channel.id:
             await self.send_message(ctx, strings.Gator.EXISTS_VC)
@@ -162,6 +167,7 @@ class MusicCogHelper:
                 result = await loop.run_in_executor(None, self.utils.search, song)
             source = result["url"] or self.utils.stream(video_id=result["id"])
             music = Music(
+                bot=self.bot,
                 id=result["id"],
                 title=result["title"],
                 creator="Placeholder",
@@ -228,6 +234,7 @@ class MusicCogHelper:
             expired = await music.expired()
             message = None
             if expired:
+                log_info("{}: URL expired, refetching...".format(guild.id))
                 message = await self.send_message(ctx, strings.Gator.DOREFETCH)
                 await music.refetch(check=False)
 

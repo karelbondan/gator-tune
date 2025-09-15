@@ -10,12 +10,7 @@ import utilities.strings as strings
 from cogs.helper.music import MusicCogHelper
 from configs import CONFIG
 from main import GatorTune
-
-# since typed variables is usually not a python thing, the linter
-# panics since I tried using the Music class from classes.music,
-# although technically it is valid since Music from classes.music
-# is a child of types.music. 
-from utilities.classes.types import Music
+from utilities.classes.music import Music
 from utilities.classes.utilities import MusicUtils, log_info
 from utilities.helper import check_author
 
