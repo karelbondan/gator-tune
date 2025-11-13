@@ -11,6 +11,7 @@ from discord import (
     VoiceChannel,
     VoiceClient,
     VoiceState,
+    errors
 )
 from discord.ext.commands import Context
 from pytubefix.exceptions import BotDetection, RegexMatchError
@@ -204,13 +205,20 @@ class MusicCogHelper:
             log_error(format_exc())
             log_error(strings.Log.ERR_PYTUB)
             await self.send_message(ctx, strings.Gator.ERR_PYTUB.format(OWNER))
-        except KeyError as playlist_private:
+        except KeyError as undefined:
             log_error(format_exc())
-            log_error(strings.Log.ERR_PLYPV)
-            if "header" in str(playlist_private):
+            if "header" in str(undefined):
+                log_error(strings.Log.ERR_PLYPV)
                 await self.send_message(ctx, strings.Gator.ERR_PLYLS)
+            elif "visitorData" in str(undefined):
+                log_error(strings.Log.ERR_INTERNAL.format(str(undefined)))
+                await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
             else:
+                log_error(str(undefined))
                 await self.send_message(ctx, strings.Gator.ERR_GENRL)
+        except errors.ClientException as client:
+            log_error(str(client))
+            await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
         except Exception:
             log_error(format_exc())
             await self.send_message(ctx, strings.Gator.ERR_GENRL)

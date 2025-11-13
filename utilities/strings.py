@@ -44,6 +44,7 @@ class Gator:
     ERR_PYTUB = "Yo <@{}> the thing you told me would find songs for me broke... I think. Go check it out."
     ERR_PLYLS = "Can't play the playlist if it's private you dingus. Make it public and try again."
     ERR_FORBD = "As embarrassing as this gets, I only bow for <@{}>. Sorry peasant, you have no control over me."
+    ERR_INTERNAL = "Some circuitry shitted itself inside me. Fix me up and don't you dare fuck around while doing me a maintenance <@{}>."
     
 class Log:
     RDY_INVKD = "OnReady invoked from Music cog"
@@ -68,3 +69,4 @@ class Log:
     ERR_BOTDT = "Oh no I'm detected as a bot boohoo"
     ERR_PLYPV = "The playlist is private lol"
     ERR_PYTUB = "Pytube going haywire again with the regex error thing"
+    ERR_INTERNAL = "Internal error occured: {}"
