@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import re
 from asyncio import run_coroutine_threadsafe
 from traceback import format_exc
-from typing import Tuple, cast
+from typing import TYPE_CHECKING, Tuple, cast
 
 from discord import (
     Guild,
@@ -11,17 +13,19 @@ from discord import (
     VoiceChannel,
     VoiceClient,
     VoiceState,
-    errors
+    errors,
 )
 from discord.ext.commands import Context
 from pytubefix.exceptions import BotDetection, RegexMatchError
 
 import utilities.strings as strings
 from configs import OWNER, YT
-from main import GatorTune
 from utilities.classes.music import Music
-from utilities.classes.types import PlaylistQueue
 from utilities.classes.utilities import MusicUtils, log_error, log_info
+
+if TYPE_CHECKING:
+    from main import GatorTune
+    from utilities.classes.types import PlaylistQueue
 
 
 class MusicCogHelper:
@@ -166,7 +170,10 @@ class MusicCogHelper:
                     await self.send_message(ctx, mesge)
             else:
                 result = await loop.run_in_executor(None, self.utils.search, song)
-            source = result["url"] or self.utils.stream(video_id=result["id"])
+            # source = result["url"] or self.utils.stream(video_id=result["id"])
+            source = result["url"] or await loop.run_in_executor(
+                None, self.utils.stream, result["id"]
+            )
             music = Music(
                 bot=self.bot,
                 id=result["id"],
@@ -196,11 +203,14 @@ class MusicCogHelper:
                 await self.edit_message(status, msg)
         except BotDetection:
             log_error(strings.Log.ERR_BOTDT)
-            if cnt != 3:
-                self.utils.token()
-                await self.play(ctx, query, cnt + 1)
-            else:
-                await self.send_message(ctx, strings.Gator.ERR_GIVUP.format(OWNER))
+            try:
+                if cnt != 3:
+                    await self.utils.token()
+                    await self.play(ctx, query, cnt + 1)
+                else:
+                    await self.send_message(ctx, strings.Gator.ERR_GIVUP.format(OWNER))
+            except RuntimeError:
+                await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
         except RegexMatchError:
             log_error(format_exc())
             log_error(strings.Log.ERR_PYTUB)

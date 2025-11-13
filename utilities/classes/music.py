@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import requests
-from discord.ext import commands
 
 from utilities.classes.utilities import MusicUtils
+
+if TYPE_CHECKING:
+    from main import GatorTune
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 
@@ -9,7 +15,7 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 class Music:
     def __init__(
         self,
-        bot: commands.Bot,
+        bot: GatorTune,
         id: str,
         title: str,
         creator: str,
@@ -28,11 +34,11 @@ class Music:
         self.lyrics = lyrics
         self.source = source
         self.playlist_title = playlist_title
-        self.utils = MusicUtils()
+        self.utils = MusicUtils(bot)
 
     def _check(self):
         # thanks chatgpt lmoa
-        # apparently endpoints that returns a streamable will make request 
+        # apparently endpoints that returns a streamable will make request
         # download the whole shit first. makes sense though. here's where
         # the range header comes into play to save a shit ton of time.
         headers = {"User-Agent": USER_AGENT, "Range": "bytes=0-1023"}

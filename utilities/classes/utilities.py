@@ -1,9 +1,13 @@
+from __future__ import annotations
+
+import asyncio
 import json
 import re
-import subprocess
-from os import path
+import signal
+import time
+from os import kill, path
 from time import strftime
-from typing import Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Tuple
 
 import requests
 from bs4 import BeautifulSoup
@@ -11,8 +15,13 @@ from discord import FFmpegOpusAudio
 from pytubefix import Stream, YouTube
 
 import configs
+import utilities.strings as strings
 
-from utilities.classes.types import Song
+if TYPE_CHECKING:
+    from main import GatorTune
+    from utilities.classes.types import Song
+
+CONFIG = configs.CONFIG
 
 
 def _format_tab(log_type: str):
@@ -34,11 +43,12 @@ def log_error(log: str):
 
 
 class MusicUtils:
-    def __init__(self):
+    def __init__(self, bot: GatorTune):
         self.FFMPEG_OPTIONS = {
             "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
             "options": "-vn -c:a libopus -b:a 96k -vbr constrained",
         }
+        self.bot = bot
 
     def ffmpeg(self, song: str) -> FFmpegOpusAudio:
         return FFmpegOpusAudio(
@@ -156,9 +166,9 @@ class MusicUtils:
             "playlist_title": playlist_title,
         }
 
-    def token(self):
+    async def token(self):
         """Refreshes the visitor data and po token"""
-        self._potoken()
+        await self._potoken()
 
     def _result(self, response: requests.Response):
         # parse response using bs4 and get search result
@@ -177,7 +187,7 @@ class MusicUtils:
 
     def _youtube(self, video_id: str) -> Tuple[YouTube, Stream | None]:
         if not path.exists("./token.json"):
-            self._potoken()
+            asyncio.run_coroutine_threadsafe(self._potoken(), self.bot.loop).result()
         youtube = YouTube(
             url=configs.YT + video_id, use_po_token=True, token_file="./token.json"
         )
@@ -197,28 +207,75 @@ class MusicUtils:
             return None, None
 
     def stream(self, video_id: str) -> str:
-        youtube = self._youtube(video_id=video_id)[1]
+        youtube = self._youtube(video_id)[1]
         assert youtube is not None
         return youtube.url
 
-    def _potoken(self) -> Tuple[str, str]:
-        generator = path.join(
-            configs.ROOT_DIR, "utilities", "generator", "examples", "one-shot.js"
-        )
-        command = "node {}".format(generator).split(" ")
+    # thanks a lot chatgpt lol
+    async def _potoken(self) -> Tuple[str, str]:
+        """Async migrate function to generate token using one-shot.js"""
+        retries = 0
         output = {}
-        with subprocess.Popen(command, stdout=subprocess.PIPE) as generator:
-            assert generator.stdout is not None
-            for line in generator.stdout:
-                decoded = line.decode(encoding="utf-8")
-                decoded = decoded.replace("\n", "").replace(",", "")
+        while True:
+            log_info(strings.Log.TOK_START)
+            start_time = time.time()
+            process = await asyncio.create_subprocess_exec(
+                "node",
+                CONFIG["node_script"],
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            pid = process.pid
+            log_info(strings.Log.TOK_SUMMONED.format(pid))
+
+            try:
+                # Wait for process to finish or timeout
+                await asyncio.wait_for(process.wait(), timeout=CONFIG["time_limit"])
+
+                # read stdout - moved from old code
+                # has to be beneath the asyncio wait to let the timeout work
+                assert process.stdout is not None
+                async for line in process.stdout:
+                    decoded = line.decode("utf-8").strip().replace(",", "")
+                    try:
+                        k, v = decoded.split(":")
+                        key = k.strip().replace("poToken", "po_token")
+                        output[key] = eval(v.strip())
+                    except Exception:
+                        pass
+
+                with open("./token.json", "w", encoding="utf-8") as token:
+                    json.dump(output, token, indent=4)
+
+                elapsed = time.time() - start_time
+                log_info(strings.Log.TOK_EXITED_0.format(pid, elapsed))
+                break
+            except asyncio.TimeoutError:
+                # Process exceeded time limit
+                log_error(strings.Log.TOK_TIMEOUT.format(pid, CONFIG["time_limit"]))
+                process.terminate()
+
                 try:
-                    k, v = decoded.split(":")
-                    output[k.strip().replace("poToken", "po_token")] = eval(v.strip())
-                except Exception:
-                    pass
+                    await asyncio.wait_for(process.wait(), timeout=CONFIG["time_limit"])
+                except asyncio.TimeoutError:
+                    log_warn(strings.Log.TOK_EXITED_1.format(pid))
+                    kill(pid, signal.SIGKILL)
 
-        with open("./token.json", "w", encoding="utf-8") as token:
-            json.dump(output, token, indent=4)
+                retries += 1
+                elapsed = time.time() - start_time
+                msg = strings.Log.TOK_EXCEED.format(
+                    pid, elapsed, retries, CONFIG["max_retries"]
+                )
+                log_warn(msg)
 
+                if retries >= CONFIG["max_retries"]:
+                    log_warn(strings.Log.TOK_RETMAX)
+                    break
+
+                log_info(strings.Log.TOK_RETRY.format(CONFIG["retry_delay"]))
+                await asyncio.sleep(CONFIG["retry_delay"])
+
+        log_info(strings.Log.TOK_DONE)
+        if len(output.keys()) < 1:
+            raise RuntimeError(strings.Log.TOK_FAIL)
         return tuple(output.values())

@@ -1,14 +1,20 @@
-import os
+from __future__ import annotations
+
+from os import getenv, path
+from typing import TYPE_CHECKING, cast
+
 import yaml
 from dotenv import load_dotenv
-from os import path
-from typing import cast
+
+# thanks a ton https://stackoverflow.com/a/39757388
+if TYPE_CHECKING:
+    from utilities.classes.types import Config
 
 load_dotenv(override=True)
 
 # definitions
 ROOT_DIR = path.dirname(path.abspath(__file__))
-TAB = " " * int(cast(str, os.getenv("TAB_AMT")))
+TAB = " " * int(cast(str, getenv("TAB_AMT")))
 
 # for song search
 HEADERS = {
@@ -19,8 +25,14 @@ YT = "https://youtu.be/"
 PLAYLIST = "https://www.youtube.com/playlist?list="
 
 # bot
-TOKEN = cast(str, os.getenv("TOKEN"))
-OWNER = cast(int, os.getenv("OWNER"))
+TOKEN = cast(str, getenv("TOKEN"))
+OWNER = cast(int, getenv("OWNER"))
+
+# for generate token
+NODE_SCRIPT = "utilities/generator/examples/one-shot.js"
+TIME_LIMIT = 3  # seconds before killing
+MAX_RETRIES = 5  # max retries if timeout occurs
+RETRY_DELAY = 1  # seconds before retrying
 
 with open(path.join(ROOT_DIR, "config.yml"), "r", encoding="utf-8") as config:
-    CONFIG = yaml.load(config, Loader=yaml.SafeLoader)
+    CONFIG: Config = yaml.load(config, Loader=yaml.SafeLoader)

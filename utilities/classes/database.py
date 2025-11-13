@@ -1,16 +1,12 @@
-from typing import Dict, Literal, TypedDict
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Dict
 
 from discord import Guild
 
-from utilities.classes.music import Music
+if TYPE_CHECKING:
+    from utilities.classes.types import State
 
-
-class State(TypedDict):
-    voice_channel: int | None
-    text_channel: int | None
-    now_playing: str
-    queue: list[Music]
-    repeat: Literal["on", "off", "all"]
 
 class Database:
     def __init__(self) -> None:

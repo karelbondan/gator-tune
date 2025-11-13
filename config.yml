@@ -3,6 +3,13 @@ status: "Ain't got time to rock the ruckus. Time to roll! 🤘"
 prefix: "="
 leave_seconds: 5 # unused, fuck python's async 
 
+# Token generator config
+# Don't change these settings unless you know what you're doing
+node_script: "utilities/generator/examples/one-shot.js"
+time_limit: 3
+max_retries: 5
+retry_delay: 2
+
 # Commands and their aliases. Only add or remove the list contents,
 # not the commands themselves
 commands:

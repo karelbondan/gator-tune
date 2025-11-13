@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import importlib
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from discord import Guild, Member, TextChannel, VoiceClient, VoiceState
 from discord.ext import commands
@@ -9,16 +11,18 @@ import utilities.classes.utilities as utilities
 import utilities.strings as strings
 from cogs.helper.music import MusicCogHelper
 from configs import CONFIG
-from main import GatorTune
 from utilities.classes.music import Music
 from utilities.classes.utilities import MusicUtils, log_info
 from utilities.helper import check_author
+
+if TYPE_CHECKING:
+    from main import GatorTune
 
 
 class MusicCog(commands.Cog):
     def __init__(self, bot: GatorTune):
         self.bot = bot
-        self.utils = MusicUtils()
+        self.utils = MusicUtils(bot)
         self.helper = MusicCogHelper(bot, self.utils)
         importlib.reload(helper)
         importlib.reload(strings)
