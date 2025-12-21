@@ -5,6 +5,7 @@ from asyncio import run_coroutine_threadsafe
 from traceback import format_exc
 from typing import TYPE_CHECKING, Tuple, cast
 
+import requests
 from discord import (
     Guild,
     Member,
@@ -19,8 +20,9 @@ from discord.ext.commands import Context
 from pytubefix.exceptions import BotDetection, RegexMatchError
 
 import utilities.strings as strings
-from configs import OWNER, YT
+from configs import API_KEY, OWNER, SERVICE_URL, USE_SERVICE, YT
 from utilities.classes.music import Music
+from utilities.classes.types import Song
 from utilities.classes.utilities import MusicUtils, log_error, log_info
 
 if TYPE_CHECKING:
@@ -32,6 +34,7 @@ class MusicCogHelper:
     def __init__(self, bot: GatorTune, utils: MusicUtils) -> None:
         self.bot = bot
         self.utils = utils
+        self.req_headers = {"X-API-Key": API_KEY}
 
     # thanks chatgpt
     def _after(self, ctx: Context, guild: Guild):
@@ -45,6 +48,14 @@ class MusicCogHelper:
 
     def zombified(self, guild: Guild):
         return guild.me.voice is not None and guild.voice_client is None
+
+    def __stream(self, video_id: str):
+        url = "{}?id={}".format(SERVICE_URL, video_id)
+        return requests.get(url, headers=self.req_headers).text
+
+    def __search(self, query: str):
+        url = "{}search?query={}".format(SERVICE_URL, query)
+        return cast(Song, requests.get(url, headers=self.req_headers).json())
 
     def get_voice_ch(self, guild: Guild):
         return cast(VoiceClient | None, guild.voice_client)
@@ -97,7 +108,10 @@ class MusicCogHelper:
         """Recommended to be used with Threading to avoid blocking the main event loop"""
         log_info("Thread to acquire playlist data started for {}".format(guild.name))
         for song in s_queue:
-            source = self.utils.stream(video_id=song["id"])
+            if USE_SERVICE:
+                source = self.__stream(song["id"])
+            else:
+                source = self.utils.stream(video_id=song["id"])
             music = Music(
                 bot=self.bot,
                 id=song["id"],
@@ -168,12 +182,20 @@ class MusicCogHelper:
                     title = cast(str, result["playlist_title"])
                     mesge = strings.Gator.IS_PLAYLS.format(len(count), title)
                     await self.send_message(ctx, mesge)
+            elif USE_SERVICE:
+                result = await loop.run_in_executor(None, self.__search, song)
             else:
                 result = await loop.run_in_executor(None, self.utils.search, song)
-            # source = result["url"] or self.utils.stream(video_id=result["id"])
-            source = result["url"] or await loop.run_in_executor(
-                None, self.utils.stream, result["id"]
-            )
+                
+            if USE_SERVICE:
+                source = result["url"] or await loop.run_in_executor(
+                    None, self.__stream, result["id"]
+                )
+            else:
+                source = result["url"] or await loop.run_in_executor(
+                    None, self.utils.stream, result["id"]
+                )
+                
             music = Music(
                 bot=self.bot,
                 id=result["id"],

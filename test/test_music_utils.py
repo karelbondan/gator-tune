@@ -7,7 +7,7 @@ music = utils.MusicUtils()
 
 # potoken generator
 def test_potoken():
-    visitor_data, po_token = music._potoken()
+    visitor_data, po_token = music.__potoken()
     assert isinstance(visitor_data, str)
     assert isinstance(po_token, str)
 

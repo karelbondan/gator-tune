@@ -9,6 +9,7 @@ import configs
 import utilities.strings as strings
 from utilities.classes.database import Database
 from utilities.classes.utilities import log_info
+from utilities.helper import init
 
 prefix: str = configs.CONFIG["prefix"]
 
@@ -48,6 +49,16 @@ class GatorTune(commands.Bot):
 
 
 if __name__ == "__main__":
+    if not configs.USE_SERVICE:
+        # make the download folder
+        if not os.path.isdir(configs.DOWNLOAD_LOC):
+            os.mkdir(configs.DOWNLOAD_LOC)
+
+        # trigger the authentication prompt
+        if configs.USE_OAUTH:
+            init()
+
+    # run the bot
     bot = GatorTune(
         command_prefix=prefix, owner_id=configs.OWNER, intents=Intents.all()
     )

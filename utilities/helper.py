@@ -1,7 +1,9 @@
 from discord import Member
 from discord.ext.commands import Context
+from pytubefix import YouTube
 
 import utilities.strings as strings
+from configs import YT
 
 
 async def check_author(ctx: Context):
@@ -15,3 +17,11 @@ async def check_author(ctx: Context):
         await ctx.send(strings.Gator.NO_UVOICE)
         return False
     return True
+
+
+def init():
+    """This method is mainly used to trigger the oauth prompt"""
+    yt = YouTube(url=YT + "dQw4w9WgXcQ", use_oauth=True)
+    audio = yt.streams.get_audio_only()
+    assert audio
+    return audio.url

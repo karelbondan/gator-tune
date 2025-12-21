@@ -24,9 +24,16 @@ URL = "https://www.youtube.com/results?search_query="
 YT = "https://youtu.be/"
 PLAYLIST = "https://www.youtube.com/playlist?list="
 
-# bot
+# bot config
 TOKEN = cast(str, getenv("TOKEN"))
-OWNER = cast(int, getenv("OWNER"))
+OWNER = int(cast(str, getenv("OWNER")))
+USE_OAUTH = bool(cast(str, getenv("USE_OAUTH")))
+
+# service config
+USE_SERVICE = cast(str, getenv("USE_SERVICE"))
+API_KEY = cast(str, getenv("API_KEY"))
+SERVICE_URL = cast(str, getenv("SERVICE_URL"))
+DOWNLOAD_LOC = cast(str, getenv("DOWNLOAD_LOC")) or "./downloads"
 
 # for generate token
 NODE_SCRIPT = "utilities/generator/examples/one-shot.js"
