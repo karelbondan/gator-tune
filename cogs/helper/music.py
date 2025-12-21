@@ -51,7 +51,10 @@ class MusicCogHelper:
 
     def __stream(self, video_id: str):
         url = "{}?id={}".format(SERVICE_URL, video_id)
-        return requests.get(url, headers=self.req_headers).text
+        res = requests.get(url, headers=self.req_headers).text
+        # fmt:off
+        return res.replace("\"", "") # <- this lost me two fucking hours holy fucking shit im losing myself over two fucking double quotes
+        # fmt:on
 
     def __search(self, query: str):
         url = "{}search?query={}".format(SERVICE_URL, query)
@@ -186,7 +189,7 @@ class MusicCogHelper:
                 result = await loop.run_in_executor(None, self.__search, song)
             else:
                 result = await loop.run_in_executor(None, self.utils.search, song)
-                
+
             if USE_SERVICE:
                 source = result["url"] or await loop.run_in_executor(
                     None, self.__stream, result["id"]
@@ -195,7 +198,7 @@ class MusicCogHelper:
                 source = result["url"] or await loop.run_in_executor(
                     None, self.utils.stream, result["id"]
                 )
-                
+
             music = Music(
                 bot=self.bot,
                 id=result["id"],

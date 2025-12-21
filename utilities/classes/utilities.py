@@ -163,13 +163,11 @@ class MusicUtils:
         await self.__potoken()
 
     def ffmpeg(self, song: str) -> FFmpegOpusAudio:
-        # fmt:off
         return FFmpegOpusAudio(
-            source=song.replace("\"", ""), # <- this lost me two fucking hours holy fucking shit im losing myself over two fucking double quotes
+            source=song,
             before_options=self.FFMPEG_OPTIONS["before_options"],
             options=self.FFMPEG_OPTIONS["options"],
         )
-        # fmt:on
 
     def search(self, song: str) -> Song:
         # check if song is a yt link
