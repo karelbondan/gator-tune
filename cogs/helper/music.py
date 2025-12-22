@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from asyncio import run_coroutine_threadsafe
 from traceback import format_exc
 from typing import TYPE_CHECKING, Tuple, cast
 
 import requests
+from aiohttp import ClientSession
 from discord import (
     Guild,
     Member,
@@ -20,14 +22,13 @@ from discord.ext.commands import Context
 from pytubefix.exceptions import BotDetection, RegexMatchError
 
 import utilities.strings as strings
-from configs import API_KEY, OWNER, SERVICE_URL, USE_SERVICE, YT
+from configs import API_KEY, OWNER, SERVICE_URL, SERVICE_VER, USE_SERVICE, YT
 from utilities.classes.music import Music
-from utilities.classes.types import Song
+from utilities.classes.types import PlaylistQueue, Song
 from utilities.classes.utilities import MusicUtils, log_error, log_info
 
 if TYPE_CHECKING:
     from main import GatorTune
-    from utilities.classes.types import PlaylistQueue
 
 
 class MusicCogHelper:
@@ -37,7 +38,7 @@ class MusicCogHelper:
         self.req_headers = {"X-API-Key": API_KEY}
 
     # thanks chatgpt
-    def _after(self, ctx: Context, guild: Guild):
+    def __after(self, ctx: Context, guild: Guild):
         def callback(error: Exception | None):
             if error:
                 pass
@@ -46,19 +47,42 @@ class MusicCogHelper:
 
         return callback
 
-    def zombified(self, guild: Guild):
-        return guild.me.voice is not None and guild.voice_client is None
+    async def __stream(self, video_id: str):
+        url = "{}/{}/music/?id={}".format(SERVICE_URL, SERVICE_VER, video_id)
+        async with ClientSession() as session:
+            async with session.get(url, headers=self.req_headers) as res:
+                txt = await res.text()
+                # fmt:off
+                return txt.replace("\"", "") # <- this lost me two fucking hours holy fucking shit im losing myself over two fucking double quotes
+                # fmt:on
 
-    def __stream(self, video_id: str):
-        url = "{}?id={}".format(SERVICE_URL, video_id)
-        res = requests.get(url, headers=self.req_headers).text
-        # fmt:off
-        return res.replace("\"", "") # <- this lost me two fucking hours holy fucking shit im losing myself over two fucking double quotes
-        # fmt:on
+    async def __playlist(self, s: PlaylistQueue, q: list[Music], g: Guild):
+        """Fetches the songs concurrently"""
+        source = await self.__stream(s["id"])
+        self.bot.loop.run_in_executor(None, self.__queue, source, s, q, g)
 
     def __search(self, query: str):
-        url = "{}search?query={}".format(SERVICE_URL, query)
+        url = "{}/{}/music/search?query={}".format(SERVICE_URL, SERVICE_VER, query)
         return cast(Song, requests.get(url, headers=self.req_headers).json())
+
+    def __queue(self, src: str, s: PlaylistQueue, q: list[Music], g: Guild):
+        music = Music(
+            bot=self.bot,
+            id=s["id"],
+            title=s["title"],
+            creator="Placeholder",
+            duration=s["duration"],
+            lyrics="Placeholder",
+            source=src,
+            url=YT + s["id"],
+        )
+        q.append(music)
+        log_info(
+            "{} [{}] added to {}'s queue".format(s["title"], s["duration"], g.name)
+        )
+
+    def zombified(self, guild: Guild):
+        return guild.me.voice is not None and guild.voice_client is None
 
     def get_voice_ch(self, guild: Guild):
         return cast(VoiceClient | None, guild.voice_client)
@@ -107,30 +131,22 @@ class MusicCogHelper:
         self.bot.database.remove(guild)
         log_info(strings.Log.MONTY_LVE.format(guild.name))
 
-    def playlist(self, s_queue: list[PlaylistQueue], queue: list[Music], guild: Guild):
+    async def playlist(
+        self, s_queue: list[PlaylistQueue], queue: list[Music], guild: Guild
+    ):
         """Recommended to be used with Threading to avoid blocking the main event loop"""
         log_info("Thread to acquire playlist data started for {}".format(guild.name))
+
+        tasks = []
         for song in s_queue:
             if USE_SERVICE:
-                source = self.__stream(song["id"])
+                source = self.bot.loop.create_task(self.__playlist(song, queue, guild))
+                tasks.append(source)
             else:
                 source = self.utils.stream(video_id=song["id"])
-            music = Music(
-                bot=self.bot,
-                id=song["id"],
-                title=song["title"],
-                creator="Placeholder",
-                duration=song["duration"],
-                lyrics="Placeholder",
-                source=source,
-                url=YT + song["id"],
-            )
-            queue.append(music)
-            log_info(
-                "{} [{}] added to {}'s queue".format(
-                    song["title"], song["duration"], guild.name
-                )
-            )
+                self.__queue(source, song, queue, guild)
+        await asyncio.gather(*tasks, return_exceptions=True)
+
         log_info("Acquire playlist data finished for {}".format(guild.name))
 
     async def play(self, ctx: Context, query: Tuple[str, ...], cnt=0):
@@ -191,9 +207,7 @@ class MusicCogHelper:
                 result = await loop.run_in_executor(None, self.utils.search, song)
 
             if USE_SERVICE:
-                source = result["url"] or await loop.run_in_executor(
-                    None, self.__stream, result["id"]
-                )
+                source = result["url"] or await self.__stream(result["id"])
             else:
                 source = result["url"] or await loop.run_in_executor(
                     None, self.utils.stream, result["id"]
@@ -209,11 +223,14 @@ class MusicCogHelper:
                 source=source,
                 url=YT + result["id"],
             )
-            queue.append(music)
+            queue.append(music)  # append queue
 
             if result["queue"] is not None:
                 # thanks gemini
-                loop.run_in_executor(None, self.playlist, result["queue"], queue, guild)
+                # note to self -> asyncio.run_in_executor makes a new thread to run
+                # the cpu bound process, while asyncio.create_task runs the async
+                # process without the need to use await
+                loop.create_task(self.playlist(result["queue"], queue, guild))
 
             if voice.is_playing():
                 msg = strings.Gator.ADD_QUEUE.format(result["title"])
@@ -221,7 +238,7 @@ class MusicCogHelper:
             else:
                 # probably the most important bit is here lol
                 ffmpeg = self.utils.ffmpeg(song=source)
-                voice.play(ffmpeg, after=self._after(ctx, guild))
+                voice.play(ffmpeg, after=self.__after(ctx, guild))
 
                 # edit message to show the newly played song
                 msg = strings.Gator.PLAY.format(result["title"])
@@ -254,6 +271,9 @@ class MusicCogHelper:
         except errors.ClientException as client:
             log_error(str(client))
             await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
+        except RuntimeError:
+            log_error(format_exc())
+            await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
         except Exception:
             log_error(format_exc())
             await self.send_message(ctx, strings.Gator.ERR_GENRL)
@@ -272,27 +292,31 @@ class MusicCogHelper:
         except Exception:
             pass
 
-        if len(queue) > 0:
-            music = queue[0]
-            expired = await music.expired()
-            message = None
-            if expired:
-                log_info("{}: URL expired, refetching...".format(guild.id))
-                message = await self.send_message(ctx, strings.Gator.DOREFETCH)
-                await music.refetch(check=False)
+        try:
+            if len(queue) > 0:
+                music = queue[0]
+                expired = await music.expired()
+                message = None
+                if expired:
+                    log_info("{}: URL expired, refetching...".format(guild.id))
+                    message = await self.send_message(ctx, strings.Gator.DOREFETCH)
+                    await music.refetch(check=False)
 
-            voice = self.get_voice_ch(guild)
-            if self.zombified(guild):
-                voice = await self.reconnect(guild)
-            assert voice is not None
+                voice = self.get_voice_ch(guild)
+                if self.zombified(guild):
+                    voice = await self.reconnect(guild)
+                assert voice is not None
 
-            ffmpeg = self.utils.ffmpeg(song=music.source)
-            voice.play(ffmpeg, after=self._after(ctx, guild))
+                ffmpeg = self.utils.ffmpeg(song=music.source)
+                voice.play(ffmpeg, after=self.__after(ctx, guild))
 
-            content = strings.Gator.PLAY.format(music.title)
-            if message:
-                await message.edit(content=content)
+                content = strings.Gator.PLAY.format(music.title)
+                if message:
+                    await message.edit(content=content)
+                else:
+                    await self.send_message(ctx, content)
             else:
-                await self.send_message(ctx, content)
-        else:
-            await self.send_message(ctx, strings.Gator.DONE)
+                await self.send_message(ctx, strings.Gator.DONE)
+        except RuntimeError:
+            # misconfigured external service
+            await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))

@@ -246,7 +246,7 @@ class MusicCog(commands.Cog):
         curr_db = self.bot.database.get(guild.id)
         queue = curr_db["queue"]
 
-        log_info(strings.Log.CUR_QUEUE.format(queue))
+        log_info(strings.Log.CUR_QUEUE.format(repr(queue)))
         queue.clear()
         log_info(strings.Log.S_QUE_CLS.format(ctx.guild.name, queue))
 

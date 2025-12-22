@@ -36,6 +36,8 @@ USE_SERVICE=False
 API_KEY=abcdefg
 # leave as "" if you're -not- using the service
 SERVICE_URL=http://il.youtube.sm
+# service version, leave as "" if you're -not- using the service
+SERVICE_VER=v1
 # leave as "" if you're -using- the service or using the default "./downloads"
 DOWNLOAD_LOC=""
 ```

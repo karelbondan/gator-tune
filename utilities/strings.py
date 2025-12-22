@@ -81,3 +81,5 @@ class Log:
     TOK_RETRY = "Retrying after {}s..."
     TOK_DONE = "Done"
     TOK_FAIL = "Failed generating VisitorData and PoToken. You might want to update the submodule to the latest version if there's any update available"
+    
+    EXPIRED_HUH = "This shouldn't have happened. \n- Did you configure your webserver correctly?\n- Did you enter the SERVICE_URL correctly in the service's .env?\n- Is the service endpoint reachable?"

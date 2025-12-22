@@ -9,6 +9,7 @@ dependencies = [
     "aiohttp==3.12.15",
     "aiosignal==1.4.0",
     "async-timeout==5.0.1",
+    "asyncio>=4.0.0",
     "attrs==24.2.0",
     "audioop-lts==0.2.2",
     "beautifulsoup4==4.12.3",

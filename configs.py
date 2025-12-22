@@ -33,6 +33,7 @@ USE_OAUTH = bool(cast(str, getenv("USE_OAUTH")))
 USE_SERVICE = cast(str, getenv("USE_SERVICE"))
 API_KEY = cast(str, getenv("API_KEY"))
 SERVICE_URL = cast(str, getenv("SERVICE_URL"))
+SERVICE_VER = cast(str, getenv("SERVICE_VER"))
 DOWNLOAD_LOC = cast(str, getenv("DOWNLOAD_LOC")) or "./downloads"
 
 # for generate token
