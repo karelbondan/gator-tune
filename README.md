@@ -24,15 +24,16 @@ Run the bot using `uv run main.py` after you've finished configuring.
 # === bot config ===
 TOKEN=token # your bot token
 OWNER=12345 # your user id
-# set to False if you want to use PoToken or if you're -using- the service
-USE_OAUTH=True 
+# set to 0 if you want to use PoToken or if you're -using- the service
+USE_OAUTH=1 
 
 # === stdout config ===
 TAB_AMT=5
 
 # === service config ===
-USE_SERVICE=False
-# enter your api key if you're using the service (see service readme for more info)
+# set to 1 if you want to use the service
+USE_SERVICE=0
+# enter your api key if you're -using- the service (see service readme for more info)
 API_KEY=abcdefg
 # leave as "" if you're -not- using the service
 SERVICE_URL=http://il.youtube.sm

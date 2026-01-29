@@ -27,10 +27,10 @@ PLAYLIST = "https://www.youtube.com/playlist?list="
 # bot config
 TOKEN = cast(str, getenv("TOKEN"))
 OWNER = int(cast(str, getenv("OWNER")))
-USE_OAUTH = bool(cast(str, getenv("USE_OAUTH")))
+USE_OAUTH = int(cast(str, getenv("USE_OAUTH")))
 
 # service config
-USE_SERVICE = cast(str, getenv("USE_SERVICE"))
+USE_SERVICE = int(cast(str, getenv("USE_SERVICE")))
 API_KEY = cast(str, getenv("API_KEY"))
 SERVICE_URL = cast(str, getenv("SERVICE_URL"))
 SERVICE_VER = cast(str, getenv("SERVICE_VER"))
