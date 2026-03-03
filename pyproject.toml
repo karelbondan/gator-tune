@@ -20,7 +20,7 @@ dependencies = [
     "colorama==0.4.6",
     "decorator==4.4.2",
     "discord==2.3.2",
-    "discord-py==2.6.0",
+    "discord-py==2.7.0",
     "frozenlist==1.5.0",
     "html5lib==1.1",
     "idna==3.10",
