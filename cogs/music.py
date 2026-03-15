@@ -7,13 +7,15 @@ from discord import Guild, Member, TextChannel, VoiceClient, VoiceState
 from discord.ext import commands
 
 import cogs.helper.music as helper
-import utilities.classes.utilities as utilities
+import utilities.classes.common as common
 import utilities.strings as strings
 from cogs.helper.music import MusicCogHelper
 from configs import CONFIG
-from utilities.classes.music import Music
-from utilities.classes.utilities import MusicUtils, log_info
+from model.music import Music
+from utilities.classes.common import log_info
 from utilities.helper import check_author
+from utilities.music_service import MusicService
+from utilities.music_utils import MusicUtils
 
 if TYPE_CHECKING:
     from main import GatorTune
@@ -23,10 +25,11 @@ class MusicCog(commands.Cog):
     def __init__(self, bot: GatorTune):
         self.bot = bot
         self.utils = MusicUtils(bot)
-        self.helper = MusicCogHelper(bot, self.utils)
+        self.service = MusicService(bot)
+        self.helper = MusicCogHelper(bot, self.utils, self.service)
         importlib.reload(helper)
         importlib.reload(strings)
-        importlib.reload(utilities)
+        importlib.reload(common)
 
     def _get_text_ch(self, guild: Guild):
         curr_db = self.bot.database.get(guild.id)

@@ -6,8 +6,6 @@ from asyncio import run_coroutine_threadsafe
 from traceback import format_exc
 from typing import TYPE_CHECKING, Tuple, cast
 
-import requests
-from aiohttp import ClientSession
 from discord import (
     Guild,
     Member,
@@ -22,20 +20,22 @@ from discord.ext.commands import Context
 from pytubefix.exceptions import BotDetection, RegexMatchError
 
 import utilities.strings as strings
-from configs import API_KEY, OWNER, SERVICE_URL, SERVICE_VER, USE_SERVICE, YT
-from utilities.classes.music import Music
-from utilities.classes.types import PlaylistQueue, Song
-from utilities.classes.utilities import MusicUtils, log_error, log_info
+from configs import OWNER, USE_SERVICE, YT
+from model.music import Music
+from utilities.classes.common import log_error, log_info
+from utilities.classes.types import PlaylistQueue
+from utilities.music_service import MusicService
+from utilities.music_utils import MusicUtils
 
 if TYPE_CHECKING:
     from main import GatorTune
 
 
 class MusicCogHelper:
-    def __init__(self, bot: GatorTune, utils: MusicUtils) -> None:
+    def __init__(self, bot: GatorTune, utils: MusicUtils, svc: MusicService) -> None:
         self.bot = bot
         self.utils = utils
-        self.req_headers = {"X-API-Key": API_KEY}
+        self.service = svc
 
     # thanks chatgpt
     def __after(self, ctx: Context, guild: Guild):
@@ -46,24 +46,6 @@ class MusicCogHelper:
                 run_coroutine_threadsafe(self.next(ctx, guild), self.bot.loop)
 
         return callback
-
-    async def __stream(self, video_id: str):
-        url = "{}/{}/music/?id={}".format(SERVICE_URL, SERVICE_VER, video_id)
-        async with ClientSession() as session:
-            async with session.get(url, headers=self.req_headers) as res:
-                txt = await res.text()
-                # fmt:off
-                return txt.replace("\"", "") # <- this lost me two fucking hours holy fucking shit im losing myself over two fucking double quotes
-                # fmt:on
-
-    async def __playlist(self, s: PlaylistQueue, q: list[Music], g: Guild):
-        """Fetches the songs concurrently"""
-        source = await self.__stream(s["id"])
-        self.bot.loop.run_in_executor(None, self.__queue, source, s, q, g)
-
-    def __search(self, query: str):
-        url = "{}/{}/music/search?query={}".format(SERVICE_URL, SERVICE_VER, query)
-        return cast(Song, requests.get(url, headers=self.req_headers).json())
 
     def __queue(self, src: str, s: PlaylistQueue, q: list[Music], g: Guild):
         music = Music(
@@ -137,15 +119,14 @@ class MusicCogHelper:
         """Recommended to be used with Threading to avoid blocking the main event loop"""
         log_info("Thread to acquire playlist data started for {}".format(guild.name))
 
-        tasks = []
+        loop = self.bot.loop
         for song in s_queue:
             if USE_SERVICE:
-                source = self.bot.loop.create_task(self.__playlist(song, queue, guild))
-                tasks.append(source)
+                src = await self.service.stream(song["id"])
             else:
-                source = self.utils.stream(video_id=song["id"])
-                self.__queue(source, song, queue, guild)
-        await asyncio.gather(*tasks, return_exceptions=True)
+                src = await loop.run_in_executor(None, self.utils.stream, song["id"])
+            await loop.run_in_executor(None, self.__queue, src, song, queue, guild)
+            await asyncio.sleep(1)
 
         log_info("Acquire playlist data finished for {}".format(guild.name))
 
@@ -202,12 +183,12 @@ class MusicCogHelper:
                     mesge = strings.Gator.IS_PLAYLS.format(len(count), title)
                     await self.send_message(ctx, mesge)
             elif USE_SERVICE:
-                result = await loop.run_in_executor(None, self.__search, song)
+                result = await loop.run_in_executor(None, self.service.search, song)
             else:
                 result = await loop.run_in_executor(None, self.utils.search, song)
 
             if USE_SERVICE:
-                source = result["url"] or await self.__stream(result["id"])
+                source = result["url"] or await self.service.stream(result["id"])
             else:
                 source = result["url"] or await loop.run_in_executor(
                     None, self.utils.stream, result["id"]
@@ -274,6 +255,9 @@ class MusicCogHelper:
         except RuntimeError:
             log_error(format_exc())
             await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
+        except LookupError:
+            log_error(format_exc())
+            await self.send_message(ctx, strings.Gator.ERR_404)
         except Exception:
             log_error(format_exc())
             await self.send_message(ctx, strings.Gator.ERR_GENRL)
@@ -318,5 +302,5 @@ class MusicCogHelper:
             else:
                 await self.send_message(ctx, strings.Gator.DONE)
         except RuntimeError:
-            # misconfigured external service
+            # misconfigured external service --> v1 (deprecated)
             await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))

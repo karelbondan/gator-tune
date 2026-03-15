@@ -1,6 +1,6 @@
 import re
 
-import utilities.classes.utilities as utils
+import utilities.music_utils as utils
 
 music = utils.MusicUtils()
 

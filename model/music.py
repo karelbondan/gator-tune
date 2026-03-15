@@ -4,12 +4,13 @@ from typing import TYPE_CHECKING
 
 import requests
 
-import utilities.strings as strings
 from configs import USE_SERVICE
-from utilities.classes.utilities import MusicUtils
+from utilities.music_service import MusicService
+from utilities.music_utils import MusicUtils
 
 if TYPE_CHECKING:
     from main import GatorTune
+
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 
@@ -37,6 +38,7 @@ class Music:
         self.source = source
         self.playlist_title = playlist_title
         self.utils = MusicUtils(bot)
+        self.service = MusicService(bot)
 
     def __repr__(self):
         return "<Music {0!r}>".format(self.__dict__)
@@ -57,7 +59,10 @@ class Music:
     async def refetch(self, check=True):
         """Refetch the streamable URL if it has expired"""
         expired = await self.expired() if check else True
-        if USE_SERVICE:
-            raise RuntimeError(strings.Log.EXPIRED_HUH)
         if expired:
-            self.source = self.utils.stream(self.id)
+            if USE_SERVICE:
+                self.source = await self.service.stream(self.id)
+            else:
+                self.source = await self.bot.loop.run_in_executor(
+                    None, self.utils.stream, self.id
+                )

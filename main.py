@@ -8,7 +8,7 @@ from discord.ext import commands
 import configs
 import utilities.strings as strings
 from utilities.classes.database import Database
-from utilities.classes.utilities import log_info
+from utilities.classes.common import log_info
 from utilities.helper import init
 
 prefix: str = configs.CONFIG["prefix"]

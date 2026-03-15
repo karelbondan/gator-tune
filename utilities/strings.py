@@ -45,6 +45,7 @@ class Gator:
     ERR_PLYLS = "Can't play the playlist if it's private you dingus. Make it public and try again."
     ERR_FORBD = "As embarrassing as this gets, I only bow for <@{}>. Sorry peasant, you have no control over me."
     ERR_INTERNAL = "Some circuitry shitted itself inside me. Fix me up and don't you dare fuck around while doing me a maintenance <@{}>."
+    ERR_404 = "Can't find any music with that link of yours. You sure it's the right thing?"
     
 class Log:
     RDY_INVKD = "OnReady invoked from Music cog"

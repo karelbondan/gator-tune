@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict
 
 if TYPE_CHECKING:
-    from utilities.classes.music import Music
+    from model.music import Music
 
 
 class State(TypedDict):

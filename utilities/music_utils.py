@@ -6,7 +6,6 @@ import re
 import signal
 import time
 from os import kill, path
-from time import strftime
 from typing import TYPE_CHECKING, Dict, Tuple
 
 import requests
@@ -16,33 +15,16 @@ from pytubefix import Stream, YouTube
 
 import configs
 import utilities.strings as strings
+from utilities.classes.common import CONFIG, log_error, log_info, log_warn
+from utilities.classes.types import Song
 
 if TYPE_CHECKING:
     from main import GatorTune
-    from utilities.classes.types import Song
-
-CONFIG = configs.CONFIG
-
-
-def _format_tab(log_type: str):
-    # 9 is the total length from start to before
-    # the log msg, e.g. INFO     something
-    return " {}{}".format(log_type, " " * (9 - len(log_type)))
-
-
-def log_info(log: str):
-    print("{}{}{}".format(strftime("%Y-%m-%d %H:%M:%S"), _format_tab("INFO"), log))
-
-
-def log_warn(log: str):
-    print("{}{}{}".format(strftime("%Y-%m-%d %H:%M:%S"), _format_tab("WARN"), log))
-
-
-def log_error(log: str):
-    print("{}{}{}".format(strftime("%Y-%m-%d %H:%M:%S"), _format_tab("ERROR"), log))
 
 
 class MusicUtils:
+    """This utility service is used if service is not used"""
+
     def __init__(self, bot: GatorTune):
         self.FFMPEG_OPTIONS = {
             "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
@@ -245,7 +227,7 @@ class MusicUtils:
         # fmt:off
         try:
             playlist_title = videos["header"]["pageHeaderRenderer"]["pageTitle"]
-        except KeyError: 
+        except KeyError:
             playlist_title = videos["header"]["playlistHeaderRenderer"]["title"]["simpleText"]
         videos = videos["contents"] \
             ["twoColumnBrowseResultsRenderer"]["tabs"][0] \
