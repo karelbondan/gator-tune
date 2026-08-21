@@ -2,8 +2,8 @@ from discord import Member
 from discord.ext.commands import Context
 from pytubefix import YouTube
 
-import utilities.strings as strings
 from configs import YT
+from utilities import strings
 
 
 async def check_author(ctx: Context):

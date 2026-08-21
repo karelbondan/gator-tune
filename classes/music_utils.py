@@ -6,17 +6,18 @@ import re
 import signal
 import time
 from os import kill, path
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING
 
 import requests
 from bs4 import BeautifulSoup
-from discord import FFmpegOpusAudio
 from pytubefix import Stream, YouTube
 
 import configs
-import utilities.strings as strings
-from utilities.classes.common import CONFIG, log_error, log_info, log_warn
-from utilities.classes.types import Song
+from classes.audio import Audio
+from classes.exceptions import TokenGenerationFailure
+from classes.types import Song
+from utilities import strings
+from utilities.log_helper import CONFIG, log_error, log_info, log_warn
 
 if TYPE_CHECKING:
     from main import GatorTune
@@ -47,7 +48,7 @@ class MusicUtils:
                 )
                 return json.loads(data[0])
 
-    def __youtube(self, video_id: str) -> Tuple[YouTube, Stream | None]:
+    def __youtube(self, video_id: str) -> tuple[YouTube, Stream | None]:
         if not path.exists("./token.json"):
             asyncio.run_coroutine_threadsafe(self.__potoken(), self.bot.loop).result()
         if configs.USE_OAUTH:
@@ -60,7 +61,7 @@ class MusicUtils:
 
     def __find_link(
         self, query: str
-    ) -> Tuple[YouTube, Stream | None] | Tuple[None, None]:
+    ) -> tuple[YouTube, Stream | None] | tuple[None, None]:
         """Check if the given query is a youtube link, if not then return nothing"""
         yt_url_regex = (
             r"(https?:\/\/([\w\.]{1,256})?youtu(\.)?be(\.com)?/(watch\?v=)?)([\w-]+)"
@@ -72,7 +73,7 @@ class MusicUtils:
             return None, None
 
     # thanks a lot chatgpt lol
-    async def __potoken(self) -> Tuple[str, str]:
+    async def __potoken(self) -> tuple[str, str]:
         """Async migrate function to generate token using one-shot.js"""
         retries = 0
         output = {}
@@ -110,14 +111,14 @@ class MusicUtils:
                 elapsed = time.time() - start_time
                 log_info(strings.Log.TOK_EXITED_0.format(pid, elapsed))
                 break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Process exceeded time limit
                 log_error(strings.Log.TOK_TIMEOUT.format(pid, CONFIG["time_limit"]))
                 process.terminate()
 
                 try:
                     await asyncio.wait_for(process.wait(), timeout=CONFIG["time_limit"])
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     log_warn(strings.Log.TOK_EXITED_1.format(pid))
                     kill(pid, signal.SIGKILL)
 
@@ -137,15 +138,15 @@ class MusicUtils:
 
         log_info(strings.Log.TOK_DONE)
         if len(output.keys()) < 1:
-            raise RuntimeError(strings.Log.TOK_FAIL)
+            raise TokenGenerationFailure(strings.Log.TOK_FAIL)
         return tuple(output.values())
 
     async def token(self):
         """Refreshes the visitor data and po token"""
         await self.__potoken()
 
-    def ffmpeg(self, song: str) -> FFmpegOpusAudio:
-        return FFmpegOpusAudio(
+    def ffmpeg(self, song: str) -> Audio:
+        return Audio(
             source=song,
             before_options=self.FFMPEG_OPTIONS["before_options"],
             options=self.FFMPEG_OPTIONS["options"],
@@ -181,7 +182,8 @@ class MusicUtils:
         # fmt:on
         # apparently yt also includes "adSlotRenderer" in the first index so yeah
         is_adv: dict = videos[0]["itemSectionRenderer"]["contents"][0]
-        if list(is_adv.keys())[0] == "adSlotRenderer":
+        # next(iter)) -> get the first key of the dict
+        if next(iter(is_adv)) == "adSlotRenderer":
             videos = videos[1]["itemSectionRenderer"]["contents"]
         else:
             videos = videos[0]["itemSectionRenderer"]["contents"]
@@ -191,7 +193,7 @@ class MusicUtils:
         # also try to search for the first valid song for 10 times, if fails then just fail
         video_id = video_title = video_duration = ""
         for idx, songs in enumerate(videos):
-            assert isinstance(songs, Dict)
+            assert isinstance(songs, dict)
             if idx > 10:
                 break
             try:
@@ -264,14 +266,14 @@ class MusicUtils:
         fetch = self.__youtube(video_id)
         yt = fetch[0]
         audio = fetch[1]
-        audio_file = "{}/{}.m4a".format(configs.DOWNLOAD_LOC, yt.video_id)
+        audio_file = f"{configs.DOWNLOAD_LOC}/{yt.video_id}.m4a"
 
         # download the song, skip if already downloaded before
         if not path.isfile(audio_file):
             audio = yt.streams.get_audio_only()
             assert audio
             audio.download(
-                filename="{}.m4a".format(video_id),
+                filename=f"{video_id}.m4a",
                 output_path=configs.DOWNLOAD_LOC,
             )
 

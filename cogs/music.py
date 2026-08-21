@@ -7,15 +7,15 @@ from discord import Guild, Member, TextChannel, VoiceClient, VoiceState
 from discord.ext import commands
 
 import cogs.helper.music as helper
-import utilities.classes.common as common
-import utilities.strings as strings
+from classes.audio import Audio
+from classes.music_service import MusicService
+from classes.music_utils import MusicUtils
 from cogs.helper.music import MusicCogHelper
 from configs import CONFIG
 from model.music import Music
-from utilities.classes.common import log_info
-from utilities.helper import check_author
-from utilities.music_service import MusicService
-from utilities.music_utils import MusicUtils
+from utilities import log_helper, strings
+from utilities.bot_helper import check_author
+from utilities.log_helper import log_info
 
 if TYPE_CHECKING:
     from main import GatorTune
@@ -29,7 +29,7 @@ class MusicCog(commands.Cog):
         self.helper = MusicCogHelper(bot, self.utils, self.service)
         importlib.reload(helper)
         importlib.reload(strings)
-        importlib.reload(common)
+        importlib.reload(log_helper)
 
     def _get_text_ch(self, guild: Guild):
         curr_db = self.bot.database.get(guild.id)
@@ -207,6 +207,12 @@ class MusicCog(commands.Cog):
             return await ctx.send(strings.Gator.NO_PLAYNG)
 
         if voice.is_playing():
+            # kill the current source to avoid dangling temp logs
+            # and the ffmpeg process
+            if voice.source and isinstance(voice.source, Audio):
+                voice.source.kill()
+
+            # pause because stop causes double skip for some reason
             voice.pause()
 
         await ctx.send(strings.Gator.SKIP)

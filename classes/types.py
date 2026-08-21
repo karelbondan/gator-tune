@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 if TYPE_CHECKING:
     from model.music import Music
@@ -29,26 +29,26 @@ class PlaylistQueue(TypedDict):
 
 class Song(TypedDict):
     id: str
-    url: Optional[str]
+    url: str | None
     title: str
-    queue: Optional[list[PlaylistQueue]]
+    queue: list[PlaylistQueue] | None
     duration: str
-    playlist_title: Optional[str]
+    playlist_title: str | None
 
 
 class Commands(TypedDict):
-    play: List[str]
-    pause: List[str]
-    resume: List[str]
-    repeat: List[str]
-    stop: List[str]
-    clear: List[str]
-    leave: List[str]
-    skip: List[str]
-    remove: List[str]
-    now_playing: List[str]
-    queue: List[str]
-    lyrics: List[str]
+    play: list[str]
+    pause: list[str]
+    resume: list[str]
+    repeat: list[str]
+    stop: list[str]
+    clear: list[str]
+    leave: list[str]
+    skip: list[str]
+    remove: list[str]
+    now_playing: list[str]
+    queue: list[str]
+    lyrics: list[str]
 
 
 class Config(TypedDict):

@@ -1,11 +1,11 @@
-from pytubefix import YouTube
-from os import path
 import subprocess
+from os import path
+
 import configs
 
 
 def test_pytube_download():
-    video_id = "XF2nC3lI70A"
+    # video_id = "XF2nC3lI70A"
 
     # yt = YouTube(url="https://www.youtube.com/watch?v=XF2nC3lI70A", use_po_token=True)
     # config = yt.streams.get_audio_only()
@@ -14,7 +14,7 @@ def test_pytube_download():
     # rename = path.join(output, video_id, ".mp3")
 
     # unused for now
-    assert True == True
+    assert True
 
 
 def test_potoken_generator_YunzheZJU():
@@ -23,6 +23,7 @@ def test_potoken_generator_YunzheZJU():
     ).split(" ")
     output = {}
     with subprocess.Popen(command, stdout=subprocess.PIPE) as generator:
+        assert generator.stdout
         for line in generator.stdout:
             decoded = line.decode(encoding="utf-8").replace("\n", "").replace(",", "")
             try:

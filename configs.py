@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # thanks a ton https://stackoverflow.com/a/39757388
 if TYPE_CHECKING:
-    from utilities.classes.types import Config
+    from classes.types import Config
 
 load_dotenv(override=True)
 

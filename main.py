@@ -1,15 +1,17 @@
+import glob
 import importlib
 import os
+import tempfile
 from os import path
 
 from discord import Intents
 from discord.ext import commands
 
 import configs
-import utilities.strings as strings
-from utilities.classes.database import Database
-from utilities.classes.common import log_info
-from utilities.helper import init
+from classes.database import Database
+from utilities import strings
+from utilities.bot_helper import init
+from utilities.log_helper import log_info
 
 prefix: str = configs.CONFIG["prefix"]
 
@@ -19,6 +21,24 @@ class GatorTune(commands.Bot):
         super().__init__(command_prefix=command_prefix, *args, **kwargs)
         self.database = Database()
         self._commands()
+
+    async def on_ready(self):
+        # Clean up any leftover zombie files from a previous crash
+        temp_dir = tempfile.gettempdir()
+        search_pattern = os.path.join(temp_dir, "discord_ffmpeg_*.log")
+
+        leftover_files = glob.glob(search_pattern)
+        purged_count = 0
+
+        for file_path in leftover_files:
+            try:
+                os.remove(file_path)
+                purged_count += 1
+            except OSError:
+                pass
+
+        if purged_count > 0:
+            print(f"Clared {purged_count} ffmpeg log files from previous crash.")
 
     async def setup_hook(self):
         for filename in os.listdir(path=path.join(configs.ROOT_DIR, "cogs")):
@@ -37,10 +57,8 @@ class GatorTune(commands.Bot):
             for filename in os.listdir(path=path.join(configs.ROOT_DIR, "cogs")):
                 if filename.endswith(".py") and "__init__" not in filename:
                     cog = filename[:-3]
-                    await self.reload_extension(name="cogs.{}".format(cog))
-                    msg = "`{}: cog.{} extension successfully reloaded`".format(
-                        strings.Gator.CNLG, cog
-                    )
+                    await self.reload_extension(name=f"cogs.{cog}")
+                    msg = f"`{strings.Gator.CNLG}: cog.{cog} extension successfully reloaded`"
                     await ctx.send(msg)
                     log_info(msg)
 

@@ -1,13 +1,14 @@
 import re
 
-import utilities.music_utils as utils
+import classes.music_utils as utils
+from main import bot
 
-music = utils.MusicUtils()
+music = utils.MusicUtils(bot)
 
 
 # potoken generator
-def test_potoken():
-    visitor_data, po_token = music.__potoken()
+async def test_potoken():
+    visitor_data, po_token = await music.__potoken()
     assert isinstance(visitor_data, str)
     assert isinstance(po_token, str)
 
@@ -21,9 +22,9 @@ def test_music_search():
         assert isinstance(song_id, str)
         assert isinstance(song_title, str)
         assert isinstance(duration, str)
-    except Exception as e:
+    except Exception:
         print(music.search("somebody real"))
-        raise e
+        raise
 
 
 # stream
@@ -33,9 +34,9 @@ def test_music_get_stream_url():
         song_id = song_id or "WEBMU9HSChg"
         source = music.stream(song_id)
         assert isinstance(source, str)
-    except Exception as e:
+    except Exception:
         print(music.stream(song_id))
-        raise e
+        raise
 
 
 # playlist
@@ -58,14 +59,15 @@ def test_playlist_find():
     pl_id = re.findall(pattern, url)
     try:
         assert len(pl_id) == 1
-        id, title, duration, queue, title = music.playlist(pl_id[0])
-        assert isinstance(id, str)
-        assert isinstance(title, str)
-        assert isinstance(duration, str)
-        assert isinstance(queue, list)
+        # id, title, duration, queue, title = music.playlist(pl_id[0])
+        playlist = music.playlist(pl_id[0])
+        assert isinstance(playlist["id"], str)
+        assert isinstance(playlist["title"], str)
+        assert isinstance(playlist["duration"], str)
+        assert isinstance(playlist["queue"], list)
         test_dict = {"duration": "", "id": "", "title": ""}
-        for song_detail in queue:
+        for song_detail in playlist["queue"]:
             assert song_detail.keys() == test_dict.keys()
-    except Exception as e:
+    except Exception:
         print(music.playlist(pl_id[0]))
-        raise e
+        raise

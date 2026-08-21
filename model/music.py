@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 
 import requests
 
+from classes.music_service import MusicService
+from classes.music_utils import MusicUtils
 from configs import USE_SERVICE
-from utilities.music_service import MusicService
-from utilities.music_utils import MusicUtils
 
 if TYPE_CHECKING:
     from main import GatorTune
@@ -41,15 +41,15 @@ class Music:
         self.service = MusicService(bot)
 
     def __repr__(self):
-        return "<Music {0!r}>".format(self.__dict__)
+        return f"<Music {self.__dict__!r}>"
 
     def __check(self):
         # thanks chatgpt lmoa
         # apparently endpoints that returns a streamable will make request
         # download the whole shit first. makes sense though. here's where
         # the range header comes into play to save a shit ton of time.
-        headers = {"User-Agent": USER_AGENT, "Range": "bytes=0-1023"}
-        return requests.get(url=self.source, headers=headers)
+        headers = {"User-Agent": USER_AGENT}
+        return requests.get(url=self.source, headers=headers, stream=True)
 
     async def expired(self):
         """Check whether the streamable URL has expired"""

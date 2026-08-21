@@ -4,7 +4,7 @@ import asyncio
 import re
 from asyncio import run_coroutine_threadsafe
 from traceback import format_exc
-from typing import TYPE_CHECKING, Tuple, cast
+from typing import TYPE_CHECKING, cast
 
 from discord import (
     Guild,
@@ -19,13 +19,19 @@ from discord import (
 from discord.ext.commands import Context
 from pytubefix.exceptions import BotDetection, RegexMatchError
 
-import utilities.strings as strings
+from classes.audio import Audio
+from classes.exceptions import (
+    MisconfiguredService,
+    ServiceError,
+    TokenGenerationFailure,
+)
+from classes.music_service import MusicService
+from classes.music_utils import MusicUtils
+from classes.types import PlaylistQueue
 from configs import OWNER, USE_SERVICE, YT
 from model.music import Music
-from utilities.classes.common import log_error, log_info
-from utilities.classes.types import PlaylistQueue
-from utilities.music_service import MusicService
-from utilities.music_utils import MusicUtils
+from utilities import strings
+from utilities.log_helper import log_error, log_info
 
 if TYPE_CHECKING:
     from main import GatorTune
@@ -38,14 +44,26 @@ class MusicCogHelper:
         self.service = svc
 
     # thanks chatgpt
-    def __after(self, ctx: Context, guild: Guild):
-        def callback(error: Exception | None):
-            if error:
-                pass
-            else:
-                run_coroutine_threadsafe(self.next(ctx, guild), self.bot.loop)
+    def __after(self, err: Exception | None, ctx: Context, guild: Guild, src: Audio):
+        exc = ""
 
-        return callback
+        if err:
+            exc = f"{strings.Gator.CNLG}: {err.__class__.__name__}: {err!s}"
+        elif src.error_message:
+            excs = re.findall(r".+(in#0|tcp).+\n", src.error_message, re.IGNORECASE)
+            # keep the error if its length splitted by &, /, and \s,
+            # 2 is under 40
+            for e in excs:
+                l = len(re.split(r"[&/\s]", e))
+                e = cast(str, e).replace("\n", "")
+                # -# is small text followed by code ``
+                exc += f"-# `{strings.Gator.CNLG}: {e}`\n" if l < 40 else ""
+
+        if exc:
+            msg = f"{strings.Gator.ERR_STREAM}\n{exc}"
+            run_coroutine_threadsafe(self.send_message(ctx, msg), self.bot.loop)
+
+        run_coroutine_threadsafe(self.next(ctx, guild), self.bot.loop)
 
     def __queue(self, src: str, s: PlaylistQueue, q: list[Music], g: Guild):
         music = Music(
@@ -72,6 +90,12 @@ class MusicCogHelper:
     async def send_message(self, ctx: Context, msg: str):
         """Exclusive use for this helper class, supposedly"""
         return await ctx.send(msg)
+
+    async def send_error(self, ctx: Context, msg: str, error: Exception):
+        """For sending errors only"""
+        # -# is small text followed by code ``
+        detail = f"-# `{strings.Gator.CNLG}: {error.__class__.__name__}: {error!s}`"
+        return await ctx.send(f"{msg}\n{detail}")
 
     async def edit_message(self, msg: Message, content: str):
         """Exclusive use for this helper class, supposedly"""
@@ -130,7 +154,7 @@ class MusicCogHelper:
 
         log_info("Acquire playlist data finished for {}".format(guild.name))
 
-    async def play(self, ctx: Context, query: Tuple[str, ...], cnt=0):
+    async def play(self, ctx: Context, query: tuple[str, ...], cnt=0):
         assert isinstance(ctx.author, Member)
         assert isinstance(ctx.author.voice, VoiceState)
         assert isinstance(ctx.author.voice.channel, VoiceChannel)
@@ -219,7 +243,9 @@ class MusicCogHelper:
             else:
                 # probably the most important bit is here lol
                 ffmpeg = self.utils.ffmpeg(song=source)
-                voice.play(ffmpeg, after=self.__after(ctx, guild))
+                voice.play(
+                    ffmpeg, after=lambda e, f=ffmpeg: self.__after(e, ctx, guild, f)
+                )
 
                 # edit message to show the newly played song
                 msg = strings.Gator.PLAY.format(result["title"])
@@ -232,12 +258,12 @@ class MusicCogHelper:
                     await self.play(ctx, query, cnt + 1)
                 else:
                     await self.send_message(ctx, strings.Gator.ERR_GIVUP.format(OWNER))
-            except RuntimeError:
-                await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
-        except RegexMatchError:
+            except TokenGenerationFailure as e:
+                await self.send_error(ctx, strings.Gator.ERR_INTERNAL.format(OWNER), e)
+        except RegexMatchError as e:
             log_error(format_exc())
             log_error(strings.Log.ERR_PYTUB)
-            await self.send_message(ctx, strings.Gator.ERR_PYTUB.format(OWNER))
+            await self.send_error(ctx, strings.Gator.ERR_PYTUB.format(OWNER), e)
         except KeyError as undefined:
             log_error(format_exc())
             if "header" in str(undefined):
@@ -245,22 +271,24 @@ class MusicCogHelper:
                 await self.send_message(ctx, strings.Gator.ERR_PLYLS)
             elif "visitorData" in str(undefined):
                 log_error(strings.Log.ERR_INTERNAL.format(str(undefined)))
-                await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
+                await self.send_error(
+                    ctx, strings.Gator.ERR_INTERNAL.format(OWNER), undefined
+                )
             else:
                 log_error(str(undefined))
-                await self.send_message(ctx, strings.Gator.ERR_GENRL)
+                await self.send_error(ctx, strings.Gator.ERR_GENRL, undefined)
         except errors.ClientException as client:
             log_error(str(client))
-            await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
-        except RuntimeError:
+            await self.send_error(ctx, strings.Gator.ERR_INTERNAL.format(OWNER), client)
+        except MisconfiguredService as svc:
             log_error(format_exc())
-            await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
-        except LookupError:
+            await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
+        except ServiceError as svc:
             log_error(format_exc())
-            await self.send_message(ctx, strings.Gator.ERR_404)
-        except Exception:
+            await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
+        except Exception as exc:
             log_error(format_exc())
-            await self.send_message(ctx, strings.Gator.ERR_GENRL)
+            await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)
 
     async def next(self, ctx: Context, guild: Guild):
         """Exclusive use: only to play the next song in queue"""
@@ -282,7 +310,7 @@ class MusicCogHelper:
                 expired = await music.expired()
                 message = None
                 if expired:
-                    log_info("{}: URL expired, refetching...".format(guild.id))
+                    log_info(f"{guild.id}: URL expired, refetching...")
                     message = await self.send_message(ctx, strings.Gator.DOREFETCH)
                     await music.refetch(check=False)
 
@@ -292,7 +320,9 @@ class MusicCogHelper:
                 assert voice is not None
 
                 ffmpeg = self.utils.ffmpeg(song=music.source)
-                voice.play(ffmpeg, after=self.__after(ctx, guild))
+                voice.play(
+                    ffmpeg, after=lambda e, f=ffmpeg: self.__after(e, ctx, guild, f)
+                )
 
                 content = strings.Gator.PLAY.format(music.title)
                 if message:
@@ -301,6 +331,7 @@ class MusicCogHelper:
                     await self.send_message(ctx, content)
             else:
                 await self.send_message(ctx, strings.Gator.DONE)
-        except RuntimeError:
+        except MisconfiguredService as svc:
             # misconfigured external service --> v1 (deprecated)
-            await self.send_message(ctx, strings.Gator.ERR_INTERNAL.format(OWNER))
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)

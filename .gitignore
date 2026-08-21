@@ -8,3 +8,4 @@ audios/
 *token.json
 *restore*
 build/
+*.log

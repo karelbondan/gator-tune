@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 from discord import Guild
 
 if TYPE_CHECKING:
-    from utilities.classes.types import State
+    from classes.types import State
 
 
 class Database:
     def __init__(self) -> None:
-        self.database: Dict[int, State] = {}
+        self.database: dict[int, State] = {}
 
     def push(self, guild_id: int):
         """Instantiates a new database record of a newly joined guild in the main thread"""

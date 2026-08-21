@@ -34,19 +34,21 @@ class Gator:
     INV_REMOV = "Use your eyes. Only {} song(s) are currently in queue"
     TIP_RPEAT = "Either set the repeat mode to **on, off, or all**. I've set it to **{}** for your convenience. You're welcome"
     ERR_PLAYR = 'Couldn\'t play that song. Probably copyrighted. Fuck those capitalists. Try again but instead add "lyrics" at the end'
-    ERR_GENRL = "Couldn't play that song. Go whine to Freddy or something."
+    ERR_GENRL = "Can't play that song. Go whine to Freddy or something."
     ERR_BOTDT = {
         1: "Well shit. Those fuckers found out I'm a bot (I'm fucking not). I'm gonna try doing some magic shit. Wait for a moment.",
         2: "Still sees me as a bot. Disrespectful motherfuckers. I'm gonna try again. Wait for a bit more will ya.",
         3: "One... fucking... moment...",
     }
-    ERR_GIVUP = "_sigh_ yo dickhead <@{}> fix me up... _please_"
-    ERR_PYTUB = "Yo <@{}> the thing you told me would find songs for me broke... I think. Go check it out."
+    ERR_GIVUP = "_sigh_ yo <@{}> fix me up... _please_"
+    ERR_PYTUB = "<@{}> the thing you told me would find songs for me broke... I think. Go check it out."
     ERR_PLYLS = "Can't play the playlist if it's private you dingus. Make it public and try again."
-    ERR_FORBD = "As embarrassing as this gets, I only bow for <@{}>. Sorry peasant, you have no control over me."
+    ERR_FORBD = "As embarrassing as this gets, I only follow <@{}>'s orders. Sorry peasant, you have no control over me."
     ERR_INTERNAL = "Some circuitry shitted itself inside me. Fix me up and don't you dare fuck around while doing me a maintenance <@{}>."
     ERR_404 = "Can't find any music with that link of yours. You sure it's the right thing?"
-    
+    ERR_SERVICE = "The external service I'm hooked to isn't working rn it seems like. Sorry lil guy!"
+    ERR_ERROR = "Can't play that song due to something inside me shitting itself. Sorry lil guy!"
+    ERR_STREAM = "Dang an error happened to the music source I think. I can't continue playing this track. Sorry lil guy!"
 class Log:
     RDY_INVKD = "OnReady invoked from Music cog"
     PLY_INVKD = "Play command invoked by {} from {}"
