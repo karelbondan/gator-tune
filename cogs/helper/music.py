@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 from asyncio import run_coroutine_threadsafe
 from traceback import format_exc
@@ -22,12 +23,15 @@ from pytubefix.exceptions import BotDetection, RegexMatchError
 from classes.audio import Audio
 from classes.exceptions import (
     MisconfiguredService,
+    NotImplementedYet,
+    SelectionExpired,
     ServiceError,
     TokenGenerationFailure,
 )
 from classes.music_service import MusicService
 from classes.music_utils import MusicUtils
-from classes.types import PlaylistQueue
+from classes.selection import Selection
+from classes.types import PlaylistQueue, Song
 from configs import OWNER, USE_SERVICE, YT
 from model.music import Music
 from utilities import strings
@@ -43,8 +47,7 @@ class MusicCogHelper:
         self.utils = utils
         self.service = svc
 
-    # thanks chatgpt
-    def __after(self, err: Exception | None, ctx: Context, guild: Guild, src: Audio):
+    def _after(self, err: Exception | None, ctx: Context, guild: Guild, src: Audio):
         exc = ""
 
         if err:
@@ -65,7 +68,7 @@ class MusicCogHelper:
 
         run_coroutine_threadsafe(self.next(ctx, guild), self.bot.loop)
 
-    def __queue(self, src: str, s: PlaylistQueue, q: list[Music], g: Guild):
+    def _queue(self, src: str, s: PlaylistQueue, q: list[Music], g: Guild):
         music = Music(
             bot=self.bot,
             id=s["id"],
@@ -80,6 +83,29 @@ class MusicCogHelper:
         log_info(
             "{} [{}] added to {}'s queue".format(s["title"], s["duration"], g.name)
         )
+
+    async def _choose_format_message(self, selection: Selection):
+        """For use by 'choose music' methods"""
+        trimmed = selection.get_paginated()
+        content = f"{strings.Gator.CHOOSE_ONE}\n"
+
+        for idx, song in enumerate(trimmed):
+            # [text](url) is like a tag, <url> suppresses embed
+            # the extra spacebreak is intentional
+            content += f"{idx + 1}. "
+            content += f"[{song['title']}](<{strings.Helper.YT_URL}{song['id']}>) "
+            content += f"({song['duration']})\n"
+        content += f"Page {selection.page} / {selection.total_page}"
+
+        return content
+
+    async def _choose_edit(self, selection: Selection):
+        """For use by 'choose music' methods"""
+        msg = selection.message
+        assert msg
+
+        content = await self._choose_format_message(selection)
+        await msg.edit(content=content)
 
     def zombified(self, guild: Guild):
         return guild.me.voice is not None and guild.voice_client is None
@@ -141,7 +167,7 @@ class MusicCogHelper:
         self, s_queue: list[PlaylistQueue], queue: list[Music], guild: Guild
     ):
         """Recommended to be used with Threading to avoid blocking the main event loop"""
-        log_info("Thread to acquire playlist data started for {}".format(guild.name))
+        log_info(f"Thread to acquire playlist data started for {guild.name}")
 
         loop = self.bot.loop
         for song in s_queue:
@@ -149,10 +175,105 @@ class MusicCogHelper:
                 src = await self.service.stream(song["id"])
             else:
                 src = await loop.run_in_executor(None, self.utils.stream, song["id"])
-            await loop.run_in_executor(None, self.__queue, src, song, queue, guild)
+            await loop.run_in_executor(None, self._queue, src, song, queue, guild)
             await asyncio.sleep(1)
 
-        log_info("Acquire playlist data finished for {}".format(guild.name))
+        log_info(f"Acquire playlist data finished for {guild.name}")
+
+    async def choose_next(self, guild_id: int):
+        curr_db = self.bot.database.get(guild_id)
+        selection = curr_db["active_selection"]
+
+        if not selection or not selection.message:
+            return False
+
+        if selection.next():  # the most important bit lol
+            return await self._choose_edit(selection)
+
+    async def choose_prev(self, guild_id: int):
+        curr_db = self.bot.database.get(guild_id)
+        selection = curr_db["active_selection"]
+
+        if not selection or not selection.message:
+            return False
+
+        if selection.prev():  # the most important bit lol
+            return await self._choose_edit(selection)
+
+    async def chosen(self, guild_id: int, index: int):
+        curr_db = self.bot.database.get(guild_id)
+        selection = curr_db["active_selection"]
+
+        if not selection or not selection.message:
+            return False
+
+        trimmed = selection.get_paginated()
+
+        # this abomination is being done here because on the last page
+        # the index could be higher than the length of the list hence the max.
+        # and vice versa with the min. the idea here is to prevent out of range
+        # error on the last page. e.g. user reacted 5 but list only 3 in length.
+        # using below with result in 3 % 5, which will result in 3, then minus 1
+        # because array slicing moment
+        index = (min(index, len(trimmed)) % max(index, len(trimmed))) - 1
+        song = trimmed[index]
+
+        ctx = selection.context
+        try:
+            await selection.message.delete()
+            await self.play(ctx, (f"{strings.Helper.YT_URL}{song['id']}",))
+            curr_db["active_selection"] = None
+        except Exception as exc:  # noqa
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)
+
+    async def choose(self, ctx: Context, query: tuple[str, ...]):
+        try:
+            if not USE_SERVICE:
+                raise NotImplementedYet("Not implemented yet")
+
+            assert isinstance(ctx.author, Member)
+            assert isinstance(ctx.author.voice, VoiceState)
+            assert isinstance(ctx.author.voice.channel, VoiceChannel)
+            assert ctx.guild
+
+            guild = ctx.guild
+            curr_db = self.bot.database.get(guild.id)
+
+            # get the song list
+            songs = await self.service.choose(" ".join(query))
+
+            # initialize the selection session and get the
+            # paginated list
+            selections = Selection(songs=songs, context=ctx)
+
+            # send message
+            content = await self._choose_format_message(selections)
+            msg = await ctx.send(content)
+
+            # add reactions for control
+            numbers = selections.get_number_emojis()
+            control = ["◀️", *numbers, "▶️"]
+            tasks = [msg.add_reaction(emoji) for emoji in control]
+            await asyncio.gather(*tasks)
+
+            # update the message reference in the selection object
+            selections.message = msg
+
+            curr_db["active_selection"] = selections
+            self.bot.database.update(guild, curr_db)
+        except MisconfiguredService as svc:
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
+        except ServiceError as svc:
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
+        except NotImplementedYet as not_impl:
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_NOT_IMPL, not_impl)
+        except Exception as exc:  # noqa
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)
 
     async def play(self, ctx: Context, query: tuple[str, ...], cnt=0):
         assert isinstance(ctx.author, Member)
@@ -244,7 +365,7 @@ class MusicCogHelper:
                 # probably the most important bit is here lol
                 ffmpeg = self.utils.ffmpeg(song=source)
                 voice.play(
-                    ffmpeg, after=lambda e, f=ffmpeg: self.__after(e, ctx, guild, f)
+                    ffmpeg, after=lambda e, f=ffmpeg: self._after(e, ctx, guild, f)
                 )
 
                 # edit message to show the newly played song
@@ -286,7 +407,7 @@ class MusicCogHelper:
         except ServiceError as svc:
             log_error(format_exc())
             await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
-        except Exception as exc:
+        except Exception as exc:  # noqa
             log_error(format_exc())
             await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)
 
@@ -301,7 +422,7 @@ class MusicCogHelper:
                 queue.append(queue.pop(0))
             elif repeat_mode == "off":
                 queue.pop(0)
-        except Exception:
+        except Exception:  # noqa
             pass
 
         try:
@@ -321,7 +442,7 @@ class MusicCogHelper:
 
                 ffmpeg = self.utils.ffmpeg(song=music.source)
                 voice.play(
-                    ffmpeg, after=lambda e, f=ffmpeg: self.__after(e, ctx, guild, f)
+                    ffmpeg, after=lambda e, f=ffmpeg: self._after(e, ctx, guild, f)
                 )
 
                 content = strings.Gator.PLAY.format(music.title)

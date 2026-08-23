@@ -91,6 +91,7 @@ class MusicCog(commands.Cog):
     async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
         assert self.bot.user
         assert payload.member
+        assert payload.guild_id
         bot = self.bot
         bot_id = self.bot.user.id
 
@@ -121,23 +122,21 @@ class MusicCog(commands.Cog):
             del self.message_cache[msg.id]
             return
 
-        edit = msg.edit(content=f"{payload.emoji} was reacted to this message")
+        # process the reaction
+        unicode_emoji = str(payload.emoji)
+        if unicode_emoji == "▶️":
+            await self.helper.choose_next(payload.guild_id)
+        elif unicode_emoji == "◀️":
+            await self.helper.choose_prev(payload.guild_id)
+        else:
+            # ['1', '️', '⃣'] get the first one
+            await self.helper.chosen(payload.guild_id, int(next(iter(unicode_emoji))))
+
         remv = msg.remove_reaction(payload.emoji, payload.member)
-        await asyncio.gather(*[edit, remv])
+        await asyncio.gather(*[remv])
 
         end = time.perf_counter()
         log_info(f"Post-reaction task finished, took {end - start:.6f} seconds")
-
-    @commands.command(name="riek")
-    async def riek(self, ctx: commands.Context):
-        msg = await ctx.send("ahn")
-        emojis = ["👍", "👎", "🤷"]
-        tasks = [msg.add_reaction(emoji) for emoji in emojis]
-
-        self.message_cache[msg.id] = msg
-
-        # add the reactions
-        await asyncio.gather(*tasks)
 
     @commands.command(name="vc")
     async def vc(self, ctx: commands.Context):
@@ -166,6 +165,26 @@ class MusicCog(commands.Cog):
             return await ctx.send(strings.Gator.NO_SQUERY)
 
         await self.helper.play(ctx, query)
+
+    @commands.command(name="choose")
+    async def choose(self, ctx: commands.Context, *query: str):
+        if not await check_author(ctx):
+            return False
+
+        # check if the request is already a yt link
+        if self.utils.find_id(" ".join(query)):
+            return await self.play(ctx, *query)
+
+        assert ctx.guild
+        assert isinstance(ctx.author, Member)
+        log_info(strings.Log.PLY_INVKD.format(ctx.author, ctx.guild.name))
+
+        guild = ctx.guild
+        curr_db = self.bot.database.get(guild.id)
+        curr_db["text_channel"] = ctx.channel.id
+        self.bot.database.update(guild=guild, data=curr_db)
+
+        await self.helper.choose(ctx, query)
 
     @commands.command(name="now_playing", aliases=CONFIG["commands"]["now_playing"])
     async def now_playing(self, ctx: commands.Context):

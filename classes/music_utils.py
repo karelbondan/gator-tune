@@ -145,6 +145,13 @@ class MusicUtils:
         """Refreshes the visitor data and po token"""
         await self.__potoken()
 
+    def find_id(self, query: str):
+        """Check if the given query is a youtube link, if not then return nothing"""
+        try:
+            return re.findall(strings.Regexes.YT_URL, query)[0][-1]
+        except IndexError:
+            return None
+
     def ffmpeg(self, song: str) -> Audio:
         return Audio(
             source=song,
@@ -163,6 +170,7 @@ class MusicUtils:
                 "queue": None,
                 "duration": ".".join(map(str, divmod(yt.length, 60))),
                 "playlist_title": None,
+                "cover": yt.thumbnail_url,
             }
         # search youtube
         response = requests.get(url=configs.URL + song, headers=configs.HEADERS)
@@ -212,6 +220,7 @@ class MusicUtils:
             "queue": None,
             "duration": video_duration,
             "playlist_title": None,
+            "cover": None,
         }
 
     def playlist(self, id: str) -> Song:
@@ -260,6 +269,7 @@ class MusicUtils:
             "queue": queue,
             "duration": video_duration,
             "playlist_title": playlist_title,
+            "cover": None,
         }
 
     def stream(self, video_id: str) -> str:

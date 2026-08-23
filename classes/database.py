@@ -20,6 +20,7 @@ class Database:
             "now_playing": "",
             "queue": [],
             "repeat": "off",
+            "active_selection": None,
         }
         return self.database[guild_id]
 

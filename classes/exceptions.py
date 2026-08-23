@@ -18,3 +18,11 @@ class ServiceError(GatorExplode):
 
 class StreamError(GatorExplode):
     pass
+
+
+class NotImplementedYet(GatorExplode):
+    pass
+
+
+class SelectionExpired(GatorExplode):
+    pass

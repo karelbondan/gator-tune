@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, TypedDict
 
 if TYPE_CHECKING:
+    from classes.selection import Selection
     from model.music import Music
 
 
@@ -12,6 +13,7 @@ class State(TypedDict):
     now_playing: str
     queue: list[Music]
     repeat: Literal["on", "off", "all"]
+    active_selection: Selection | None
 
 
 class Queue(TypedDict):
@@ -31,6 +33,7 @@ class Song(TypedDict):
     id: str
     url: str | None
     title: str
+    cover: str | None
     queue: list[PlaylistQueue] | None
     duration: str
     playlist_title: str | None
