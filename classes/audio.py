@@ -62,7 +62,7 @@ class Audio(FFmpegOpusAudio):
             if self._process:
                 try:
                     self._process.kill()
-                except Exception:
+                except Exception:  # noqa
                     pass
 
     def cleanup(self) -> None:
@@ -87,7 +87,7 @@ class Audio(FFmpegOpusAudio):
                     for x in ("Error", "Server returned", "Invalid", "Failure")
                 ):
                     self.error_message = log_content
-            except Exception as e:
+            except Exception as e:  # noqa
                 print(f"Failed parsing log file during read loop: {e}")
 
     def __safe_delete_log(self) -> None:

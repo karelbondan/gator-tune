@@ -1,9 +1,22 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
+import time
 from typing import TYPE_CHECKING, Literal, cast
 
-from discord import Guild, Member, TextChannel, VoiceClient, VoiceState
+from discord import (
+    Guild,
+    Member,
+    Message,
+    RawReactionActionEvent,
+    Reaction,
+    TextChannel,
+    VoiceClient,
+    VoiceState,
+    utils,
+)
+from discord.abc import Messageable
 from discord.ext import commands
 
 import cogs.helper.music as helper
@@ -24,6 +37,7 @@ if TYPE_CHECKING:
 class MusicCog(commands.Cog):
     def __init__(self, bot: GatorTune):
         self.bot = bot
+        self.message_cache: dict[int, Message] = {}
         self.utils = MusicUtils(bot)
         self.service = MusicService(bot)
         self.helper = MusicCogHelper(bot, self.utils, self.service)
@@ -72,6 +86,58 @@ class MusicCog(commands.Cog):
 
                 await text_ch.send(strings.Gator.LONE)
                 await self.helper.disconnect(guild)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: RawReactionActionEvent):
+        assert self.bot.user
+        assert payload.member
+        bot = self.bot
+        bot_id = self.bot.user.id
+
+        log_info("Message reaction detected")
+        start = time.perf_counter()
+
+        try:
+            # get from local cache
+            msg = self.message_cache[payload.message_id]
+
+        except KeyError:
+            # try again from the bot cache
+            msg = utils.get(self.bot.cached_messages, id=payload.message_id)
+
+            # last resort -> get straight from discord
+            if not msg:
+                log_info("Message not cached")
+                chn = cast(TextChannel | None, bot.get_channel(payload.channel_id))
+                if not chn:
+                    log_info("Channel not cached")
+                    chn = cast(Messageable, await bot.fetch_channel(payload.channel_id))
+                msg = await chn.fetch_message(payload.message_id)
+
+        # add to cache
+        self.message_cache[msg.id] = msg
+
+        if msg.author.id != bot_id or payload.member.id == bot_id:
+            del self.message_cache[msg.id]
+            return
+
+        edit = msg.edit(content=f"{payload.emoji} was reacted to this message")
+        remv = msg.remove_reaction(payload.emoji, payload.member)
+        await asyncio.gather(*[edit, remv])
+
+        end = time.perf_counter()
+        log_info(f"Post-reaction task finished, took {end - start:.6f} seconds")
+
+    @commands.command(name="riek")
+    async def riek(self, ctx: commands.Context):
+        msg = await ctx.send("ahn")
+        emojis = ["👍", "👎", "🤷"]
+        tasks = [msg.add_reaction(emoji) for emoji in emojis]
+
+        self.message_cache[msg.id] = msg
+
+        # add the reactions
+        await asyncio.gather(*tasks)
 
     @commands.command(name="vc")
     async def vc(self, ctx: commands.Context):
