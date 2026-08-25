@@ -29,14 +29,17 @@ class Gator:
     NO_PAUSED = "Do you mind? I'm currently playing a song doofus"
     NO_PLAYNG = "What are you on about? I'm not even playing anything rn"
     NOW_PLYNG = "🎸 **{}** (`{}`)"
+    CHOOSE_INIT = "Hmmm, let's see..."
     CHOOSE_ONE = "I can play one of these. Choose one lil guy!"
+    CHOOSE_EXP = "Are you there lil guy? Eh, whatever. Call me again when you've decided."
+    CHOOSE_EXIST = "Chill out would ya?! Finish the previous selection first. Sheesh."
     INV_RPEAT = "What even is that. I only know **on, off, or all** for the repeat mode. Current mode is **{}** btw"
     INV_INTGR = "I'm not playing this game. Enter a valid fucking number, please"
     INV_REMOV = "Use your eyes. Only {} song(s) are currently in queue"
     TIP_RPEAT = "Either set the repeat mode to **on, off, or all**. I've set it to **{}** for your convenience. You're welcome"
     ERR_PLAYR = 'Can\'t play that song. Probably copyrighted. Fuck those capitalists. Try again but instead add "lyrics" at the end'
     ERR_GENRL = "Can't play that song. Go whine to Freddy or something."
-    ERR_BOTDT = {
+    ERR_BOTDT = {  # noqa
         1: "Well shit. Those fuckers found out I'm a bot (I'm fucking not). I'm gonna try doing some magic shit. Wait for a moment.",
         2: "Still sees me as a bot. Disrespectful motherfuckers. I'm gonna try again. Wait for a bit more will ya.",
         3: "One... fucking... moment...",

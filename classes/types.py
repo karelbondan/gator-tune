@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, TypedDict
 
+from discord import Message
+
 if TYPE_CHECKING:
     from classes.selection import Selection
     from model.music import Music
@@ -14,6 +16,7 @@ class State(TypedDict):
     queue: list[Music]
     repeat: Literal["on", "off", "all"]
     active_selection: Selection | None
+    message_cache: dict[int, Message]
 
 
 class Queue(TypedDict):
@@ -52,6 +55,7 @@ class Commands(TypedDict):
     now_playing: list[str]
     queue: list[str]
     lyrics: list[str]
+    choose: list[str]
 
 
 class Config(TypedDict):
@@ -62,4 +66,5 @@ class Config(TypedDict):
     time_limit: int
     max_retries: int
     retry_delay: int
+    choose_timeout: int
     commands: Commands

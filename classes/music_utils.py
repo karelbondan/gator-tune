@@ -20,6 +20,7 @@ from utilities import strings
 from utilities.log_helper import CONFIG, log_error, log_info, log_warn
 
 if TYPE_CHECKING:
+    from classes.selection import Selection
     from main import GatorTune
 
 
@@ -102,10 +103,10 @@ class MusicUtils:
                         k, v = decoded.split(":")
                         key = k.strip().replace("poToken", "po_token")
                         output[key] = eval(v.strip())
-                    except Exception:
+                    except Exception:  # noqa
                         pass
 
-                with open("./token.json", "w", encoding="utf-8") as token:
+                with open("./token.json", "w", encoding="utf-8") as token:  # noqa
                     json.dump(output, token, indent=4)
 
                 elapsed = time.time() - start_time
@@ -288,3 +289,25 @@ class MusicUtils:
             )
 
         return audio_file
+
+    async def create_timeout(self, selection: Selection, guild_id: int):
+        try:
+            msg = selection.message
+            await asyncio.sleep(selection.expire_seconds)
+
+            if not msg:
+                return
+
+            tasks = [msg.clear_reactions(), msg.edit(content=strings.Gator.CHOOSE_EXP)]
+            await asyncio.gather(*tasks)
+
+            db = self.bot.database.get(guild_id)
+
+            # clear active selection for the current guild
+            db["active_selection"] = None
+
+            # delete msg cache
+            del db["message_cache"][msg.id]
+
+        except asyncio.CancelledError:
+            pass

@@ -10,7 +10,6 @@ from discord import (
     Member,
     Message,
     RawReactionActionEvent,
-    Reaction,
     TextChannel,
     VoiceClient,
     VoiceState,
@@ -94,13 +93,14 @@ class MusicCog(commands.Cog):
         assert payload.guild_id
         bot = self.bot
         bot_id = self.bot.user.id
+        db = self.bot.database.get(payload.guild_id)
 
         log_info("Message reaction detected")
         start = time.perf_counter()
 
         try:
             # get from local cache
-            msg = self.message_cache[payload.message_id]
+            msg = db["message_cache"][payload.message_id]
 
         except KeyError:
             # try again from the bot cache
@@ -114,26 +114,22 @@ class MusicCog(commands.Cog):
                     log_info("Channel not cached")
                     chn = cast(Messageable, await bot.fetch_channel(payload.channel_id))
                 msg = await chn.fetch_message(payload.message_id)
-
-        # add to cache
-        self.message_cache[msg.id] = msg
+                # add to cache
+                db["message_cache"][msg.id] = msg
 
         if msg.author.id != bot_id or payload.member.id == bot_id:
-            del self.message_cache[msg.id]
             return
 
         # process the reaction
         unicode_emoji = str(payload.emoji)
         if unicode_emoji == "▶️":
-            await self.helper.choose_next(payload.guild_id)
+            await self.helper.choose_change_page(payload.guild_id, "next")
         elif unicode_emoji == "◀️":
-            await self.helper.choose_prev(payload.guild_id)
-        else:
-            # ['1', '️', '⃣'] get the first one
+            await self.helper.choose_change_page(payload.guild_id, "prev")
+        else:  # ['1', '️', '⃣'] get the first one
             await self.helper.chosen(payload.guild_id, int(next(iter(unicode_emoji))))
 
-        remv = msg.remove_reaction(payload.emoji, payload.member)
-        await asyncio.gather(*[remv])
+        await msg.remove_reaction(payload.emoji, payload.member)
 
         end = time.perf_counter()
         log_info(f"Post-reaction task finished, took {end - start:.6f} seconds")
@@ -166,7 +162,7 @@ class MusicCog(commands.Cog):
 
         await self.helper.play(ctx, query)
 
-    @commands.command(name="choose")
+    @commands.command(name="choose", aliases=CONFIG["commands"]["choose"])
     async def choose(self, ctx: commands.Context, *query: str):
         if not await check_author(ctx):
             return False
@@ -181,6 +177,10 @@ class MusicCog(commands.Cog):
 
         guild = ctx.guild
         curr_db = self.bot.database.get(guild.id)
+
+        if curr_db["active_selection"]:
+            return await ctx.send(strings.Gator.CHOOSE_EXIST)
+
         curr_db["text_channel"] = ctx.channel.id
         self.bot.database.update(guild=guild, data=curr_db)
 

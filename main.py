@@ -18,7 +18,7 @@ prefix: str = configs.CONFIG["prefix"]
 
 class GatorTune(commands.Bot):
     def __init__(self, command_prefix, *args, **kwargs):
-        super().__init__(command_prefix=command_prefix, *args, **kwargs)
+        super().__init__(command_prefix=command_prefix, *args, **kwargs)  # noqa
         self.database = Database()
         self._commands()
 

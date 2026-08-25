@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import math
 import re
 from asyncio import run_coroutine_threadsafe
 from traceback import format_exc
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from discord import (
     Guild,
@@ -18,24 +17,25 @@ from discord import (
     errors,
 )
 from discord.ext.commands import Context
+from emoji import replace_emoji
 from pytubefix.exceptions import BotDetection, RegexMatchError
 
 from classes.audio import Audio
 from classes.exceptions import (
     MisconfiguredService,
     NotImplementedYet,
-    SelectionExpired,
     ServiceError,
     TokenGenerationFailure,
 )
 from classes.music_service import MusicService
 from classes.music_utils import MusicUtils
 from classes.selection import Selection
-from classes.types import PlaylistQueue, Song
+from classes.types import PlaylistQueue
 from configs import OWNER, USE_SERVICE, YT
 from model.music import Music
 from utilities import strings
 from utilities.log_helper import log_error, log_info
+from configs import CONFIG
 
 if TYPE_CHECKING:
     from main import GatorTune
@@ -90,22 +90,16 @@ class MusicCogHelper:
         content = f"{strings.Gator.CHOOSE_ONE}\n"
 
         for idx, song in enumerate(trimmed):
-            # [text](url) is like a tag, <url> suppresses embed
-            # the extra spacebreak is intentional
+            # [text](url) is like <a/> tag, <url> suppresses embed
+            # the extra spacebreak on each appendage is intentional
+            title = replace_emoji(song["title"], replace="")
+            title = re.sub(r"[*_~`<>]", "", title)
             content += f"{idx + 1}. "
-            content += f"[{song['title']}](<{strings.Helper.YT_URL}{song['id']}>) "
+            content += f"[{title}](<{strings.Helper.YT_URL}{song['id']}>) "
             content += f"({song['duration']})\n"
         content += f"Page {selection.page} / {selection.total_page}"
 
         return content
-
-    async def _choose_edit(self, selection: Selection):
-        """For use by 'choose music' methods"""
-        msg = selection.message
-        assert msg
-
-        content = await self._choose_format_message(selection)
-        await msg.edit(content=content)
 
     def zombified(self, guild: Guild):
         return guild.me.voice is not None and guild.voice_client is None
@@ -180,25 +174,31 @@ class MusicCogHelper:
 
         log_info(f"Acquire playlist data finished for {guild.name}")
 
-    async def choose_next(self, guild_id: int):
+    async def choose_change_page(self, guild_id: int, action: Literal["next", "prev"]):
         curr_db = self.bot.database.get(guild_id)
         selection = curr_db["active_selection"]
 
         if not selection or not selection.message:
             return False
 
-        if selection.next():  # the most important bit lol
-            return await self._choose_edit(selection)
-
-    async def choose_prev(self, guild_id: int):
-        curr_db = self.bot.database.get(guild_id)
-        selection = curr_db["active_selection"]
-
-        if not selection or not selection.message:
+        # call either .next() or .prev() based on the action
+        # if it fails return early
+        if not getattr(selection, action, lambda: None)():
             return False
 
-        if selection.prev():  # the most important bit lol
-            return await self._choose_edit(selection)
+        # cancel the timeout and create a new one
+        selection.clear_timeout()
+
+        # edit message
+        content = await self._choose_format_message(selection)
+        await selection.message.edit(content=content)
+
+        # create a new timeout task
+        loop = self.bot.loop
+        task = loop.create_task(self.utils.create_timeout(selection, guild_id))
+        selection.timeout_task = task
+
+        return True
 
     async def chosen(self, guild_id: int, index: int):
         curr_db = self.bot.database.get(guild_id)
@@ -210,7 +210,7 @@ class MusicCogHelper:
         trimmed = selection.get_paginated()
 
         # this abomination is being done here because on the last page
-        # the index could be higher than the length of the list hence the max.
+        # the index could be higher than the length of the list hence the max
         # and vice versa with the min. the idea here is to prevent out of range
         # error on the last page. e.g. user reacted 5 but list only 3 in length.
         # using below with result in 3 % 5, which will result in 3, then minus 1
@@ -220,12 +220,24 @@ class MusicCogHelper:
 
         ctx = selection.context
         try:
+            # delete msg cache
+            del curr_db["message_cache"][selection.message.id]
+
+            # cancel asyncio timeout
+            selection.clear_timeout()
+
+            # delete the actual message and play the song
             await selection.message.delete()
             await self.play(ctx, (f"{strings.Helper.YT_URL}{song['id']}",))
+
+            # reset the active selection for the current guild
             curr_db["active_selection"] = None
+            return True
+
         except Exception as exc:  # noqa
             log_error(format_exc())
             await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)
+            return False
 
     async def choose(self, ctx: Context, query: tuple[str, ...]):
         try:
@@ -240,27 +252,36 @@ class MusicCogHelper:
             guild = ctx.guild
             curr_db = self.bot.database.get(guild.id)
 
+            msg = await ctx.send(strings.Gator.CHOOSE_INIT)
+
             # get the song list
             songs = await self.service.choose(" ".join(query))
 
             # initialize the selection session and get the
             # paginated list
-            selections = Selection(songs=songs, context=ctx)
+            timeout = CONFIG["choose_timeout"]
+            selection = Selection(songs=songs, context=ctx, expire_seconds=timeout)
 
             # send message
-            content = await self._choose_format_message(selections)
-            msg = await ctx.send(content)
+            content = await self._choose_format_message(selection)
+            await msg.edit(content=content)
 
             # add reactions for control
-            numbers = selections.get_number_emojis()
+            numbers = selection.get_number_emojis()
             control = ["◀️", *numbers, "▶️"]
             tasks = [msg.add_reaction(emoji) for emoji in control]
             await asyncio.gather(*tasks)
 
             # update the message reference in the selection object
-            selections.message = msg
+            selection.message = msg
 
-            curr_db["active_selection"] = selections
+            # create expiration task
+            loop = self.bot.loop
+            task = loop.create_task(self.utils.create_timeout(selection, guild.id))
+            selection.timeout_task = task
+
+            curr_db["active_selection"] = selection
+            curr_db["message_cache"][msg.id] = msg
             self.bot.database.update(guild, curr_db)
         except MisconfiguredService as svc:
             log_error(format_exc())

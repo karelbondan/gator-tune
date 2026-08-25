@@ -1,7 +1,7 @@
 # General config
 status: "Ain't got time to rock the ruckus. Time to roll! 🤘"
 prefix: "="
-leave_seconds: 5 # unused, fuck python's async 
+leave_seconds: 5 # unused, fuck python's async
 
 # Token generator config
 # Don't change these settings unless you know what you're doing
@@ -10,10 +10,13 @@ time_limit: 3
 max_retries: 5
 retry_delay: 2
 
+# Choose interaction timeout (seconds)
+choose_timeout: 10
+
 # Commands and their aliases. Only add or remove the list contents,
 # not the commands themselves
 commands:
-  play: 
+  play:
     - p
     - pl
   pause:
@@ -23,6 +26,8 @@ commands:
     - rs
   repeat:
     - r
+    - l
+    - loop
   stop:
     - st
   clear:
@@ -42,4 +47,6 @@ commands:
     - q
   lyrics:
     - l
-
+  choose:
+    - c
+    - ch

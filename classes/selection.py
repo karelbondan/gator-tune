@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import time
 from typing import TYPE_CHECKING
 
 from discord import Message
@@ -20,12 +19,12 @@ class Selection:
         self,
         songs: list[Song],
         context: Context,
-        expiry: float = time.monotonic() + 60,
+        expire_seconds: float = 60,
     ) -> None:
         self.context = context
         self.songs = songs
         self.message: Message | None = None
-        self.expiry = expiry
+        self.expire_seconds = expire_seconds
         self.page = 1
         self.items_per_page = 5  # also acts as offset calculation
         self.total_page = math.ceil(len(self.songs) / self.items_per_page)
@@ -64,6 +63,6 @@ class Selection:
             return True
         return False
 
-    def kill(self):
+    def clear_timeout(self):
         if self.timeout_task:
             self.timeout_task.cancel()
