@@ -11,7 +11,7 @@ max_retries: 5
 retry_delay: 2
 
 # Choose interaction timeout (seconds)
-choose_timeout: 10
+choose_timeout: 30
 
 # Commands and their aliases. Only add or remove the list contents,
 # not the commands themselves

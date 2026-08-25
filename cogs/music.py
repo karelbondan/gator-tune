@@ -122,14 +122,17 @@ class MusicCog(commands.Cog):
 
         # process the reaction
         unicode_emoji = str(payload.emoji)
+        final = False
         if unicode_emoji == "▶️":
             await self.helper.choose_change_page(payload.guild_id, "next")
         elif unicode_emoji == "◀️":
             await self.helper.choose_change_page(payload.guild_id, "prev")
         else:  # ['1', '️', '⃣'] get the first one
             await self.helper.chosen(payload.guild_id, int(next(iter(unicode_emoji))))
+            final = True
 
-        await msg.remove_reaction(payload.emoji, payload.member)
+        if not final:
+            await msg.remove_reaction(payload.emoji, payload.member)
 
         end = time.perf_counter()
         log_info(f"Post-reaction task finished, took {end - start:.6f} seconds")
@@ -160,7 +163,17 @@ class MusicCog(commands.Cog):
         if not query:
             return await ctx.send(strings.Gator.NO_SQUERY)
 
-        await self.helper.play(ctx, query)
+        result = await self.helper.play(ctx, query)
+
+        if not isinstance(result, str):
+            return
+
+        if result == "SourceNotFound":
+            if not curr_db["active_selection"]:
+                await ctx.send(strings.Gator.CHOOSE_RETRY)
+                await self.choose(ctx, *query)
+            else:
+                await ctx.send(strings.Gator.ERR_SRC_404_CHOOSE_BUSY)
 
     @commands.command(name="choose", aliases=CONFIG["commands"]["choose"])
     async def choose(self, ctx: commands.Context, *query: str):

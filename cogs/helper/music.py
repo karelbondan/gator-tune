@@ -31,11 +31,10 @@ from classes.music_service import MusicService
 from classes.music_utils import MusicUtils
 from classes.selection import Selection
 from classes.types import PlaylistQueue
-from configs import OWNER, USE_SERVICE, YT
+from configs import CONFIG, OWNER, USE_SERVICE, YT
 from model.music import Music
 from utilities import strings
 from utilities.log_helper import log_error, log_info
-from configs import CONFIG
 
 if TYPE_CHECKING:
     from main import GatorTune
@@ -53,7 +52,7 @@ class MusicCogHelper:
         if err:
             exc = f"{strings.Gator.CNLG}: {err.__class__.__name__}: {err!s}"
         elif src.error_message:
-            excs = re.findall(r".+(in#0|tcp).+\n", src.error_message, re.IGNORECASE)
+            excs = re.findall(r".+(in#0|tcp).+\n", src.error_message)
             # keep the error if its length splitted by &, /, and \s,
             # 2 is under 40
             for e in excs:
@@ -93,6 +92,7 @@ class MusicCogHelper:
             # [text](url) is like <a/> tag, <url> suppresses embed
             # the extra spacebreak on each appendage is intentional
             title = replace_emoji(song["title"], replace="")
+            title = title.replace("||", "|")
             title = re.sub(r"[*_~`<>]", "", title)
             content += f"{idx + 1}. "
             content += f"[{title}](<{strings.Helper.YT_URL}{song['id']}>) "
@@ -112,10 +112,18 @@ class MusicCogHelper:
         return await ctx.send(msg)
 
     async def send_error(self, ctx: Context, msg: str, error: Exception):
-        """For sending errors only"""
+        """For sending errors only, or further error processing"""
+
         # -# is small text followed by code ``
         detail = f"-# `{strings.Gator.CNLG}: {error.__class__.__name__}: {error!s}`"
-        return await ctx.send(f"{msg}\n{detail}")
+        await ctx.send(f"{msg}\n{detail}")
+
+        special_errors = [
+            "SourceNotFound"  # no streamable url found, prompt music choose
+        ]
+        for err in special_errors:
+            if err in str(error):
+                return err
 
     async def edit_message(self, msg: Message, content: str):
         """Exclusive use for this helper class, supposedly"""
@@ -427,7 +435,7 @@ class MusicCogHelper:
             await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
         except ServiceError as svc:
             log_error(format_exc())
-            await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
+            return await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
         except Exception as exc:  # noqa
             log_error(format_exc())
             await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)

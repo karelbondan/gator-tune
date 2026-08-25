@@ -8,7 +8,7 @@ music = utils.MusicUtils(bot)
 
 # potoken generator
 async def test_potoken():
-    visitor_data, po_token = await music.__potoken()
+    visitor_data, po_token = await music._potoken()
     assert isinstance(visitor_data, str)
     assert isinstance(po_token, str)
 

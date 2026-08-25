@@ -34,7 +34,7 @@ class MusicUtils:
         }
         self.bot = bot
 
-    def __result(self, response: requests.Response):
+    def _result(self, response: requests.Response):
         # parse response using bs4 and get search result
         soup = BeautifulSoup(response.content.decode("utf-8"), features="html5lib")
         # the index of the script that contains the data varies by time.
@@ -49,9 +49,9 @@ class MusicUtils:
                 )
                 return json.loads(data[0])
 
-    def __youtube(self, video_id: str) -> tuple[YouTube, Stream | None]:
+    def _youtube(self, video_id: str) -> tuple[YouTube, Stream | None]:
         if not path.exists("./token.json"):
-            asyncio.run_coroutine_threadsafe(self.__potoken(), self.bot.loop).result()
+            asyncio.run_coroutine_threadsafe(self._potoken(), self.bot.loop).result()
         if configs.USE_OAUTH:
             youtube = YouTube(url=configs.YT + video_id, use_oauth=True)
         else:
@@ -60,7 +60,7 @@ class MusicUtils:
             )
         return youtube, youtube.streams.get_audio_only()
 
-    def __find_link(
+    def _find_link(
         self, query: str
     ) -> tuple[YouTube, Stream | None] | tuple[None, None]:
         """Check if the given query is a youtube link, if not then return nothing"""
@@ -69,12 +69,12 @@ class MusicUtils:
         )
         try:
             video_id = re.findall(yt_url_regex, query)[0][-1]
-            return self.__youtube(video_id=video_id)
+            return self._youtube(video_id=video_id)
         except IndexError:
             return None, None
 
     # thanks a lot chatgpt lol
-    async def __potoken(self) -> tuple[str, str]:
+    async def _potoken(self) -> tuple[str, str]:
         """Async migrate function to generate token using one-shot.js"""
         retries = 0
         output = {}
@@ -144,7 +144,7 @@ class MusicUtils:
 
     async def token(self):
         """Refreshes the visitor data and po token"""
-        await self.__potoken()
+        await self._potoken()
 
     def find_id(self, query: str):
         """Check if the given query is a youtube link, if not then return nothing"""
@@ -162,7 +162,7 @@ class MusicUtils:
 
     def search(self, song: str) -> Song:
         # check if song is a yt link
-        yt, url = self.__find_link(query=song)
+        yt, url = self._find_link(query=song)
         if url and yt:
             return {
                 "id": yt.video_id,
@@ -176,7 +176,7 @@ class MusicUtils:
         # search youtube
         response = requests.get(url=configs.URL + song, headers=configs.HEADERS)
         # get json response
-        videos = self.__result(response=response)
+        videos = self._result(response=response)
         with open(
             path.join(configs.ROOT_DIR, "test", "out", "search_result.txt"), "w"
         ) as search_out:
@@ -228,7 +228,7 @@ class MusicUtils:
         # get data
         response = requests.get(url=configs.PLAYLIST + id, headers=configs.HEADERS)
         # parse data
-        videos = self.__result(response=response)
+        videos = self._result(response=response)
         assert videos is not None
 
         with open(
@@ -274,7 +274,7 @@ class MusicUtils:
         }
 
     def stream(self, video_id: str) -> str:
-        fetch = self.__youtube(video_id)
+        fetch = self._youtube(video_id)
         yt = fetch[0]
         audio = fetch[1]
         audio_file = f"{configs.DOWNLOAD_LOC}/{yt.video_id}.m4a"

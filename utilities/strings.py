@@ -33,6 +33,7 @@ class Gator:
     CHOOSE_ONE = "I can play one of these. Choose one lil guy!"
     CHOOSE_EXP = "Are you there lil guy? Eh, whatever. Call me again when you've decided."
     CHOOSE_EXIST = "Chill out would ya?! Finish the previous selection first. Sheesh."
+    CHOOSE_RETRY = "Hah! Let's try that again"
     INV_RPEAT = "What even is that. I only know **on, off, or all** for the repeat mode. Current mode is **{}** btw"
     INV_INTGR = "I'm not playing this game. Enter a valid fucking number, please"
     INV_REMOV = "Use your eyes. Only {} song(s) are currently in queue"
@@ -54,6 +55,7 @@ class Gator:
     ERR_ERROR = "Can't play that song due to something inside me shitting itself. Sorry lil guy!"
     ERR_STREAM = "Dang an error happened to the music source I think. I can't continue playing this track. Sorry lil guy!"
     ERR_NOT_IMPL = "HAH! The maintenance team forgot to disable this feature. The system hasn't allowed me to do that yet. Sorry lil guy!"
+    ERR_SRC_404_CHOOSE_BUSY = "I couldn't find any source for that song and someone's currently busy choosing the next song to play. Try again after they've finished choosing lil guy!"
     
 class Log:
     RDY_INVKD = "OnReady invoked from Music cog"
