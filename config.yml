@@ -18,6 +18,7 @@ choose_timeout: 30
 commands:
   play:
     - p
+  playlist:
     - pl
   pause:
     - ps

@@ -47,32 +47,27 @@ DOWNLOAD_LOC=""
 
 **All commands have aliases which can be adjusted in `config.yml`**
 
-- Play (auto join)
-- Pause
-- Resume
-- Repeat
-- Skip
-- Stop
-- Leave
-- List queue
-- Clear queue
-- Remove queue at index
-- Now playing
+- `play <query>` Play (auto join)
+- `playlist <url>` Play playlist
+- `choose <query>` Choose song to play
+- `pause` Pause
+- `resume` Resume
+- `repeat` Repeat
+- `skip` Skip one
+- `stop` Stop
+- `leave` Leave
+- `queue` List queue
+- `clear` Clear queue
+- `remove <index>` Remove queue at index
+- `now_playing` Now playing
 
 ## Features
 
-- Play musics from any kinds of youtube links
-- Automatically add songs from playlists
-- Auto search and play music without using any links
+- Play music from any kinds of youtube links
+- Play _public_ playlists
+- Auto search and play music without using any link, or manually choose which one to play
 - Adjustable prefix
 - Adjustable command aliases
-
-## Todo
-
-- Handle request error (non 200 status) when using external service
-  - Send meaningful message
-- Handle if ever bot detection triggered even after using oauth
-  - Prompt the user again (?)
 
 ## Upcoming
 

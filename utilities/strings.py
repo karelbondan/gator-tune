@@ -60,6 +60,7 @@ class Gator:
 class Log:
     RDY_INVKD = "OnReady invoked from Music cog"
     PLY_INVKD = "Play command invoked by {} from {}"
+    PLS_INVKD = "Playlist command invoked by {} from {}"
     PSE_INVKD = "Pause command invoked by {} from {}"
     RSM_INVKD = "Resume command invoked by {} from {}"
     RPT_INVKD = "Repeat command invoked by {} from {}"

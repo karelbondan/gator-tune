@@ -163,7 +163,7 @@ class MusicCog(commands.Cog):
         if not query:
             return await ctx.send(strings.Gator.NO_SQUERY)
 
-        result = await self.helper.play(ctx, query)
+        result = await self.helper.play(ctx, query, 0, True)
 
         if not isinstance(result, str):
             return
@@ -181,6 +181,24 @@ class MusicCog(commands.Cog):
                 await self.choose(ctx, *query)
             else:
                 await ctx.send(strings.Gator.ERR_SRC_404_CHOOSE_BUSY)
+
+    @commands.command(name="playlist", aliases=CONFIG["commands"]["playlist"])
+    async def playlist(self, ctx: commands.Context, *query: str):
+        if not await check_author(ctx):
+            return False
+        assert ctx.guild is not None
+        assert isinstance(ctx.author, Member)
+        log_info(strings.Log.PLS_INVKD.format(ctx.author, ctx.guild.name))
+
+        guild = ctx.guild
+        curr_db = self.bot.database.get(guild.id)
+        curr_db["text_channel"] = ctx.channel.id
+        self.bot.database.update(guild=guild, data=curr_db)
+
+        if not query:
+            return await ctx.send(strings.Gator.NO_SQUERY)
+
+        await self.helper.play(ctx, query)
 
     @commands.command(name="choose", aliases=CONFIG["commands"]["choose"])
     async def choose(self, ctx: commands.Context, *query: str):

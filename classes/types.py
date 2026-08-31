@@ -45,6 +45,7 @@ class Song(TypedDict):
 
 class Commands(TypedDict):
     play: list[str]
+    playlist: list[str]
     pause: list[str]
     resume: list[str]
     repeat: list[str]

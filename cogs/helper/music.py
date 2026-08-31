@@ -324,7 +324,13 @@ class MusicCogHelper:
             log_error(format_exc())
             await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)
 
-    async def play(self, ctx: Context, query: tuple[str, ...], cnt=0):
+    async def play(
+        self,
+        ctx: Context,
+        query: tuple[str, ...],
+        cnt=0,
+        bypass_playlist=False,
+    ):
         assert isinstance(ctx.author, Member)
         assert isinstance(ctx.author.voice, VoiceState)
         assert isinstance(ctx.author.voice.channel, VoiceChannel)
@@ -368,7 +374,7 @@ class MusicCogHelper:
 
         # attempt to play the song
         try:
-            if possible_playlist:
+            if possible_playlist and not bypass_playlist:
                 pl_id = possible_playlist[0]
                 result = await loop.run_in_executor(None, self.utils.playlist, pl_id)
                 if cnt == 0:
