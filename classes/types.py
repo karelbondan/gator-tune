@@ -16,6 +16,7 @@ class State(TypedDict):
     queue: list[Music]
     repeat: Literal["on", "off", "all"]
     active_selection: Selection | None
+    active_query: Song | None
     message_cache: dict[int, Message]
 
 

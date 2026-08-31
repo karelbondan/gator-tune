@@ -270,6 +270,9 @@ class MusicCogHelper:
             timeout = CONFIG["choose_timeout"]
             selection = Selection(songs=songs, context=ctx, expire_seconds=timeout)
 
+            print(query)
+            print(str(selection))
+
             # send message
             content = await self._choose_format_message(selection)
             await msg.edit(content=content)
@@ -294,6 +297,23 @@ class MusicCogHelper:
         except MisconfiguredService as svc:
             log_error(format_exc())
             await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
+        except ServiceError as svc:
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
+        except NotImplementedYet as not_impl:
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_NOT_IMPL, not_impl)
+        except Exception as exc:  # noqa
+            log_error(format_exc())
+            await self.send_error(ctx, strings.Gator.ERR_ERROR, exc)
+
+    async def info(self, ctx: Context, id_or_url: str):
+        """Get song info"""
+        try:
+            if USE_SERVICE:
+                return await self.service.info(id_or_url)
+            else:
+                raise NotImplementedError()  # lazy lol
         except ServiceError as svc:
             log_error(format_exc())
             await self.send_error(ctx, strings.Gator.ERR_SERVICE, svc)
@@ -361,6 +381,8 @@ class MusicCogHelper:
             else:
                 result = await loop.run_in_executor(None, self.utils.search, song)
 
+            curr_db["active_query"] = result
+
             if USE_SERVICE:
                 source = result["url"] or await self.service.stream(result["id"])
             else:
@@ -400,6 +422,10 @@ class MusicCogHelper:
                 # edit message to show the newly played song
                 msg = strings.Gator.PLAY.format(result["title"])
                 await self.edit_message(status, msg)
+
+            # reset the active query if song plays successfully
+            curr_db["active_query"] = None
+
         except BotDetection:
             log_error(strings.Log.ERR_BOTDT)
             try:

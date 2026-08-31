@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import importlib
+import re
 import time
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -169,7 +169,14 @@ class MusicCog(commands.Cog):
             return
 
         if result == "SourceNotFound":
-            if not curr_db["active_selection"]:
+            id = self.utils.find_id(" ".join(query))
+            song = curr_db["active_query"]
+
+            if id:
+                info = song if song else await self.helper.info(ctx, id)
+                curr_db["active_query"] = info
+                await self.choose(ctx, info["title"]) if info else None
+            elif not curr_db["active_selection"]:
                 await ctx.send(strings.Gator.CHOOSE_RETRY)
                 await self.choose(ctx, *query)
             else:

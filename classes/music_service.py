@@ -62,6 +62,16 @@ class MusicService:
             res = await self._parse_response_async(req)
             return cast(list[Song], await res.json())
 
+    async def info(self, url_or_id: str):
+        """Returns the song info"""
+        url = f"{SERVICE_URL}/{SERVICE_VER}/music/info?id_or_url={url_or_id}"
+        async with (
+            ClientSession() as session,
+            session.get(url, headers=self.req_headers) as req,
+        ):
+            res = await self._parse_response_async(req)
+            return cast(Song, await res.json())
+
     async def stream(self, video_id: str):
         url = f"{SERVICE_URL}/{SERVICE_VER}/music/?id={video_id}"
         async with (

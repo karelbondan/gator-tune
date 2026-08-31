@@ -21,6 +21,7 @@ class Database:
             "queue": [],
             "repeat": "off",
             "active_selection": None,
+            "active_query": None,
             "message_cache": {},
         }
         return self.database[guild_id]
